@@ -2,9 +2,10 @@
 
 module Test {
 
+import hilti;
+
 type Enum = enum { A = 1, B = 2, C = 4 };
 type Exception = exception;
-type MatchState = __library_type("hilti::rt::regexp::MatchState");
 type TypeInfo = __library_type("const hilti::rt::TypeInfo*");
 
 type Struct = struct {
@@ -28,7 +29,7 @@ public type TestTypes = struct {
     exception ex;
     # method void test(); # Can't test - won't be included into type info.
     interval in_;
-    MatchState li;
+    hilti::MatchState li;
     map<uint<64>, string> ma;
     iterator<map<uint<64>, string>> mai;
     net ne;
@@ -89,7 +90,7 @@ public function tuple<strong_ref<TestTypes>, strong_ref<TestTypes>, TypeInfo> ma
     U.i = 42;
 
     local re = /abc/ &nosub;
-    local MatchState MS = re.token_matcher();
+    local hilti::MatchState MS = re.token_matcher();
     local Exception E;
 
     local TestTypes x = [

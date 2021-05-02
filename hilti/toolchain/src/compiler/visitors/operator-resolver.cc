@@ -119,7 +119,7 @@ struct Normalizer : public hilti::visitor::PostOrder<void, Normalizer> {
     void replaceNode(position_t* p, T&& n) {
         auto x = p->node;
         p->node = std::forward<T>(n);
-        p->node.setOriginalNode(module->preserve(x));
+        //p->node.setOriginalNode(module->preserve(x)); TODO
         modified = true;
     }
 

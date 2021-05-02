@@ -31,22 +31,22 @@ class Stream;
 } // namespace printer
 
 /**
- * Compiler plugin that can hook into the compilation process that's driven
- * by `Unit`.
+ * Compiler plugin that implements AST-to-AST translation through a set of
+ * passes.
  *
- * A plugin gets access to the AST at all major stages. In particular it can
- * add support implement support for new language using HILTI as its code
- * generation backend by providing a parse method building its AST, along
- * with a transformation method converting any non-standard nodes HILTI
- * equivalents.
+ * The HILTI compiler itself is one plugin that's always available. On top of
+ * that, further plugins may implement passes as needed to preprocess an AST
+ * before it gets to the HILTI plugin. That way, an external plugin can
+ * implement support for new language using HILTI as its codegen backend by (1)
+ * reading its represenation into an AST using its own set of nodes (which may
+ * include reusing existing HILTI AST nodes where convinient), (2) implementing
+ * the resolution passes to fully resolve that AST (reusing HILTI passes
+ * internally where convinient), and (3) finally transforming that AST into a
+ * pure HILTI AST consistent only of the HILT nodes.
  *
- * A plugin implements a set of hook methods that get called by the
- * compilation process at the appropriate times. All hooks should be
- * stateless, apart from changing the AST where appropriate.
- *
- * @note HILTI compilation itself is also implemented through a default
- * plugin that's always available. `Unit` cycles through all available
- * plugins during the compilation process, including that default plugin.
+ * A plugin implements a set of hook methods that get called by the compilation
+ * process at the appropriate times. All hooks should be stateless, apart from
+ * changing the AST where appropriate.
  */
 struct Plugin {
     /** Helper template to define the type of hook methods. */
@@ -67,7 +67,7 @@ struct Plugin {
 
     /**
      * Callbacks for plugins will be executed in numerical order, with lower
-     * order numbers executing first.
+     * order numbers executing first. The default HILTI plugin has order 100.
      */
     int order = 0;
 
@@ -163,38 +163,15 @@ struct Plugin {
     Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> apply_coercions;
 
     /**
-     * Hook called to validate correctness of an AST, pre-transformation. Any
+     * Hook called to validate correctness of an AST once fully resolved. Any
      * errors must be reported by setting the nodes' error information.
      *
      * @param arg1 compiler context that's in use
      * @param arg2 root node of AST; the hook may not modify the AST
      * @param arg3 current unit being compiled
-     * @param arg4 pointer to boolean that the hook must set to true to
-     * indicate that errors were encountered.
+     * @return true if the AST validated correctly
      */
-    Hook<void, std::shared_ptr<hilti::Context>, Node*, Unit*, bool*> pre_validate;
-
-    /**
-     * Hook called to validate correctness of an AST, post-transformation.
-     * Any errors must be reported by setting the nodes' error information.
-     *
-     * @param arg1 compiler context that's in use
-     * @param arg2 root node of AST; the hook may not modify the AST
-     * @param arg3 current unit being compiled
-     */
-    Hook<void, std::shared_ptr<hilti::Context>, Node*, Unit*> post_validate;
-
-    /**
-     * Hook called to validate correctness of AST nodes that a module
-     * preserved before transformation. The hook runs just before the
-     * ``post_validate`` hook. Any errors must be reported by setting the
-     * nodes' error information.
-     *
-     * @param arg1 compiler context that's in use
-     * @param arg2 preserved nodes to validate
-     * @param arg3 current unit being compiled
-     */
-    Hook<void, std::shared_ptr<hilti::Context>, std::vector<Node>*, Unit*> preserved_validate;
+    Hook<void, std::shared_ptr<hilti::Context>, Node*, Unit*> validate;
 
     /**
      * Hook called to replace any custom AST nodes with standard HILTI

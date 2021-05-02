@@ -46,14 +46,8 @@ static hilti::Plugin spicy_plugin() {
         .apply_coercions = [](const std::shared_ptr<hilti::Context>& /* ctx */, Node* n,
                               hilti::Unit* u) { return applyCoercions(n, u); },
 
-        .pre_validate = [](const std::shared_ptr<hilti::Context>& /* ctx */, Node* n, hilti::Unit* u,
-                           bool* found_errors) { preTransformValidateAST(n, u, found_errors); },
-
-        .post_validate = [](const std::shared_ptr<hilti::Context>& /* ctx */, Node* n,
-                            hilti::Unit* u) { postTransformValidateAST(n, u); },
-
-        .preserved_validate = [](const std::shared_ptr<hilti::Context>& /* ctx */, std::vector<Node>* n,
-                                 hilti::Unit* u) { preservedValidateAST(n, u); },
+        .validate = [](const std::shared_ptr<hilti::Context>& /* ctx */, Node* n,
+                       hilti::Unit* u) { postTransformValidateAST(n, u); },
 
         .transform = [](std::shared_ptr<hilti::Context> ctx, Node* n, bool init, hilti::Unit* u) -> bool {
             return CodeGen(std::move(ctx)).compileModule(n, init, u);

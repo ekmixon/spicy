@@ -33,7 +33,7 @@ static Plugin hilti_plugin() {
         .component = "HILTI",
         .extension = ".hlt",
         .cxx_includes = {"hilti/rt/libhilti.h"},
-        .order = 1,
+        .order = 100,
 
         .library_paths =
             [](const std::shared_ptr<hilti::Context>& ctx) { return hilti::configuration().hilti_library_paths; },
@@ -57,9 +57,7 @@ static Plugin hilti_plugin() {
         .apply_coercions = [](const std::shared_ptr<hilti::Context>& ctx, Node* n,
                               Unit* u) { return applyCoercions(n, u); },
 
-        .pre_validate = {},
-
-        .post_validate = [](const std::shared_ptr<hilti::Context>& ctx, Node* n, Unit* u) { validateAST(n); },
+        .validate = [](const std::shared_ptr<hilti::Context>& ctx, Node* n, Unit* u) { validateAST(n); },
 
         .transform = {},
     };

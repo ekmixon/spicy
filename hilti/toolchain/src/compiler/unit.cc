@@ -28,46 +28,43 @@ inline const DebugStream AstDumpIterations("ast-dump-iterations");
 } // namespace hilti::logging::debug
 
 template<typename PluginMember, typename... Args>
-bool runHooks(PluginMember hook, const std::string& debug_msg, const Args&... args) {
-    for ( const auto& p : plugin::registry().plugins() ) {
-        if ( ! (p.*hook) )
-            continue;
+bool runHook(const Plugin& p, PluginMember hook, const std::string& debug_msg, const Args&... args) {
+    if ( ! (p.*hook) )
+        return true;
 
-        auto msg = debug_msg;
+    auto msg = debug_msg;
 
-        if ( p.component != "HILTI" )
-            msg += fmt(" (%s)", p.component);
+    if ( p.component != "HILTI" )
+        msg += fmt(" (%s)", p.component);
 
-        HILTI_DEBUG(logging::debug::Compiler, msg);
-        (*(p.*hook))(args...);
+    HILTI_DEBUG(logging::debug::Compiler, msg);
+    (*(p.*hook))(args...);
 
-        if ( logger().errors() )
-            return false;
-    }
+    if ( logger().errors() )
+        return false;
 
     return true;
 }
 
 template<typename PluginMember, typename... Args>
-bool runModifyingHooks(bool* modified, PluginMember hook, const std::string& debug_msg, const Args&... args) {
-    for ( const auto& p : plugin::registry().plugins() ) {
-        if ( ! (p.*hook) )
-            continue;
+bool runModifyingHook(const Plugin& p, bool* modified, PluginMember hook, const std::string& debug_msg,
+                      const Args&... args) {
+    if ( ! (p.*hook) )
+        return true;
 
-        auto msg = debug_msg;
+    auto msg = debug_msg;
 
-        if ( p.component != "HILTI" )
-            msg += fmt(" (%s)", p.component);
+    if ( p.component != "HILTI" )
+        msg += fmt(" (%s)", p.component);
 
-        HILTI_DEBUG(logging::debug::Compiler, msg);
-        if ( (*(p.*hook))(args...) ) {
-            *modified = true;
-            HILTI_DEBUG(logging::debug::Compiler, "  -> modified");
-        }
-
-        if ( logger().errors() )
-            return false;
+    HILTI_DEBUG(logging::debug::Compiler, msg);
+    if ( (*(p.*hook))(args...) ) {
+        *modified = true;
+        HILTI_DEBUG(logging::debug::Compiler, "  -> modified");
     }
+
+    if ( logger().errors() )
+        return false;
 
     return true;
 }
@@ -146,159 +143,103 @@ Result<hilti::Module> Unit::parse(const std::shared_ptr<Context>& context, const
 
 Result<Nothing> Unit::compile() {
     _dumpASTs(logging::debug::AstOrig, "Original AST");
-    _saveIterationASTs("AST before first iteration");
 
-    int round = 1;
-    int extra_rounds = 0; // set to >0 for debugging
+    std::set<ID> performed_imports;
 
-    while ( true ) {
-        HILTI_DEBUG(logging::debug::Compiler, fmt("processing AST, round %d", round));
+    for ( const auto& p : plugin::registry().plugins() ) {
+        HILTI_DEBUG(logging::debug::Compiler, fmt("Plugin %s", p.component));
         logging::DebugPushIndent _(logging::debug::Compiler);
 
-        bool modified = false;
+        _saveIterationASTs(p, "AST before first iteration");
 
-        std::set<ID> performed_imports;
+        int round = 1;
+        int extra_rounds = 0; // set to >0 for debugging
+
         while ( true ) {
-            auto orig_modules = _modules; // _modules may be modified by importer pass
+            HILTI_DEBUG(logging::debug::Compiler, fmt("processing AST, round %d", round));
+            logging::DebugPushIndent _(logging::debug::Compiler);
 
-            for ( const auto& id : orig_modules ) {
-                if ( performed_imports.find(id) != performed_imports.end() )
-                    continue;
+            bool modified = false;
 
-                auto cached = _context->lookupModule(id);
-                assert(cached);
+            while ( true ) {
+                auto orig_modules = _modules; // _modules may be modified by importer pass
 
-                HILTI_DEBUG(logging::debug::Compiler, fmt("performing missing imports for module %s", id));
-                {
-                    logging::DebugPushIndent _(logging::debug::Compiler);
-                    cached->dependencies = detail::importModules(*cached->node, this);
-                    _context->updateModule(*cached);
-                    performed_imports.insert(id);
+                for ( const auto& id : orig_modules ) {
+                    if ( performed_imports.find(id) != performed_imports.end() )
+                        continue;
+
+                    auto cached = _context->lookupModule(id);
+                    assert(cached);
+
+                    HILTI_DEBUG(logging::debug::Compiler, fmt("performing missing imports for module %s", id));
+                    {
+                        logging::DebugPushIndent _(logging::debug::Compiler);
+                        cached->dependencies = detail::importModules(*cached->node, this);
+                        _context->updateModule(*cached);
+                        performed_imports.insert(id);
+                    }
                 }
+
+                if ( logger().errors() )
+                    return result::Error("errors encountered during import");
+
+                if ( _modules.size() == orig_modules.size() )
+                    // repeat while as long as we keep adding modules
+                    break;
             }
 
-            if ( logger().errors() )
-                return result::Error("errors encountered during import");
+            HILTI_DEBUG(logging::debug::Compiler, fmt("modules: %s", util::join(_modules, ", ")));
 
-            if ( _modules.size() == orig_modules.size() )
-                // repeat while as long as we keep adding modules
-                break;
-        }
+            auto modules = _currentModules();
 
-        HILTI_DEBUG(logging::debug::Compiler, fmt("modules: %s", util::join(_modules, ", ")));
+            for ( auto& [id, module] : modules )
+                _resetNodes(id, &*module);
 
-        auto modules = _currentModules();
+            if ( ! runHook(p, &Plugin::build_scopes, "building scopes for all modules", context(), modules, this) )
+                return result::Error("errors encountered during scope building");
 
-        for ( auto& [id, module] : modules )
-            _resetNodes(id, &*module);
-
-        if ( ! runHooks(&Plugin::build_scopes, "building scopes for all module modules", context(), modules, this) )
-            return result::Error("errors encountered during scope building");
-
-        _dumpASTs(logging::debug::AstScopes, "AST with scopes", round);
-
-        if ( logger().errors() )
-            return result::Error("errors encountered during scope building");
-
-        for ( auto& [id, module] : modules ) {
-            if ( ! runModifyingHooks(&modified, &Plugin::resolve_ids, fmt("resolving IDs in module %s", id), context(),
-                                     &*module, this) )
-                return result::Error("errors encountered during ID resolving");
-        }
-
-        for ( auto& [id, module] : modules ) {
-            if ( ! runModifyingHooks(&modified, &Plugin::resolve_operators, fmt("resolving operators in module %s", id),
-                                     context(), &*module, this) )
-                return result::Error("errors encountered during operator resolving");
-        }
-
-        for ( auto& [id, module] : modules ) {
-            if ( ! runModifyingHooks(&modified, &Plugin::apply_coercions, fmt("coercing expressions for %s", id),
-                                     context(), &*module, this) )
-                return result::Error("errors encountered during expression coercion");
-        }
-
-        _dumpASTs(logging::debug::AstResolved, "AST after resolving", round);
-
-        if ( plugin::registry().hasHookFor(&Plugin::transform) ) {
-            _dumpASTs(logging::debug::AstPreTransformed, "Pre-transformed AST", round);
+            _dumpASTs(logging::debug::AstScopes, "ASTs with scopes", round);
 
             for ( auto& [id, module] : modules ) {
-                bool found_errors = false;
-
-                if ( ! runHooks(&Plugin::pre_validate, fmt("validating module %s (pre-transform)", id), context(),
-                                &*module, this, &found_errors) )
-                    return result::Error("errors encountered during pre-transform validation");
-
-                if ( found_errors ) {
-                    // We may have errors already set in the AST that we
-                    // don't want to report, as normally they'd go away
-                    // during further cycles. So we clear the AST and then
-                    // run the hook again to get just the errors that it puts
-                    // in place.
-                    detail::clearErrors(&*module);
-                    auto valid = _validateAST(id, NodeRef(module), [&](const ID& id, NodeRef& module) {
-                        bool found_errors = false;
-                        return runHooks(&Plugin::pre_validate,
-                                        fmt("validating module %s (pre-transform, 2nd pass)", id), context(), &*module,
-                                        this, &found_errors);
-                    });
-
-                    (void)valid;     // Fore use of `valid` since below `assert` might become a noop.
-                    assert(! valid); // We already know it's failing.
-                    _dumpAST(module, logging::debug::AstFinal, "Final AST");
-                    _saveIterationASTs("Final AST", round);
-                    return result::Error("errors encountered during pre-transform validation");
-                }
-
-                if ( ! runModifyingHooks(&modified, &Plugin::transform, fmt("transforming module %s", id), context(),
-                                         &*module, round == 1, this) )
-                    return result::Error("errors encountered during source-to-source translation");
+                if ( ! runModifyingHook(p, &modified, &Plugin::resolve_ids, fmt("resolving IDs in module %s", id),
+                                        context(), &*module, this) )
+                    return result::Error("errors encountered during ID resolving");
             }
 
-            _dumpASTs(logging::debug::AstTransformed, "Transformed AST", round);
+            for ( auto& [id, module] : modules ) {
+                if ( ! runModifyingHook(p, &modified, &Plugin::resolve_operators,
+                                        fmt("resolving operators in module %s", id), context(), &*module, this) )
+                    return result::Error("errors encountered during operator resolving");
+            }
+
+            for ( auto& [id, module] : modules ) {
+                if ( ! runModifyingHook(p, &modified, &Plugin::apply_coercions, fmt("coercing expressions for %s", id),
+                                        context(), &*module, this) )
+                    return result::Error("errors encountered during expression coercion");
+            }
+
+            _dumpASTs(logging::debug::AstResolved, "AST after resolving", round);
+
+            if ( ! modified && extra_rounds-- == 0 )
+                break;
+
+            if ( ++round >= 50 )
+                logger().internalError("hilti::Unit::compile() didn't terminate, AST keeps changing");
         }
 
-        if ( ! modified && extra_rounds-- == 0 )
-            break;
+        _dumpASTs(logging::debug::AstFinal, "Final AST");
+        _saveIterationASTs(p, "Final AST", round);
 
-        _saveIterationASTs("AST after iteration", round);
+        auto current = _currentModules();
+        // TODO: can get red of the callback now.
+        auto valid = _validateASTs(current, [&](const ID& id, NodeRef& module) {
+            return runHook(p, &Plugin::validate, fmt("validating module %s", id), context(), &*module,
+                           this);
+        });
 
-        if ( ++round >= 50 )
-            logger().internalError("hilti::Unit::compile() didn't terminate, AST keeps changing");
+        if ( ! valid )
+            return result::Error("errors encountered during validation");
     }
-
-    auto& module = imported(_id);
-    auto current = _currentModules();
-
-    for ( auto& [id, module] : current ) {
-        auto valid =
-            _validateASTs(module->as<Module>().id(), (*module).as<Module>().preserved(),
-                          [&](const ID& id, auto& preserved) {
-                              for ( auto& m : preserved )
-                                  _resetNodes(id, &m);
-
-                              return runHooks(&Plugin::preserved_validate, fmt("validating module %s (preserved)", id),
-                                              context(), &preserved, this);
-                          });
-
-        if ( ! valid ) {
-            _dumpAST(module, logging::debug::AstFinal, "Final AST");
-            _saveIterationASTs("Final AST", round);
-            return result::Error("errors encountered during validation of preserved nodes");
-        }
-    }
-
-    auto valid = _validateASTs(current, [&](const ID& id, NodeRef& module) {
-        return runHooks(&Plugin::post_validate, fmt("validating module %s (post-transform)", id), context(), &*module,
-                        this);
-    });
-
-    _dumpAST(module, logging::debug::AstFinal, "Final AST");
-    _saveIterationASTs("Final AST", round);
-
-    if ( ! valid )
-        return result::Error("errors encountered during post-transform validation");
 
     for ( auto& [id, module] : _currentModules() ) {
         _determineCompilationRequirements(*module);
@@ -311,6 +252,46 @@ Result<Nothing> Unit::compile() {
 
     return Nothing();
 }
+
+#if 0
+if ( plugin::registry().hasHookFor(&Plugin::transform) ) {
+    _dumpASTs(logging::debug::AstPreTransformed, "Pre-transformed AST", round);
+
+    for ( auto& [id, module] : modules ) {
+        bool found_errors = false;
+
+        if ( ! runHooks(&Plugin::pre_validate, fmt("validating module %s (pre-transform)", id), context(), &*module,
+                        this, &found_errors) )
+            return result::Error("errors encountered during pre-transform validation");
+
+        if ( found_errors ) {
+            // We may have errors already set in the AST that we
+            // don't want to report, as normally they'd go away
+            // during further cycles. So we clear the AST and then
+            // run the hook again to get just the errors that it puts
+            // in place.
+            detail::clearErrors(&*module);
+            auto valid = _validateAST(id, NodeRef(module), [&](const ID& id, NodeRef& module) {
+                bool found_errors = false;
+                return runHooks(&Plugin::pre_validate, fmt("validating module %s (pre-transform, 2nd pass)", id),
+                                context(), &*module, this, &found_errors);
+            });
+
+            (void)valid;     // Fore use of `valid` since below `assert` might become a noop.
+            assert(! valid); // We already know it's failing.
+            _dumpAST(module, logging::debug::AstFinal, "Final AST");
+            _saveIterationASTs("Final AST", round);
+            return result::Error("errors encountered during pre-transform validation");
+        }
+
+        if ( ! runModifyingHooks(&modified, &Plugin::transform, fmt("transforming module %s", id), context(), &*module,
+                                 round == 1, this) )
+            return result::Error("errors encountered during source-to-source translation");
+    }
+
+    _dumpASTs(logging::debug::AstTransformed, "Transformed AST", round);
+}
+#endif
 
 Result<Nothing> Unit::codegen() {
     auto& module = imported(_id);
@@ -703,11 +684,11 @@ void Unit::_dumpASTs(std::ostream& stream, const std::string& prefix, int round)
         _dumpAST(*module, stream, prefix, round);
 }
 
-void Unit::_saveIterationASTs(const std::string& prefix, int round) {
+void Unit::_saveIterationASTs(const Plugin& p, const std::string& prefix, int round) {
     if ( ! logger().isEnabled(logging::debug::AstDumpIterations) )
         return;
 
-    std::ofstream out(fmt("ast-%d.tmp", round));
+    std::ofstream out(fmt("ast-%s-%d.tmp", p.component, round));
     _dumpASTs(out, prefix, round);
 }
 

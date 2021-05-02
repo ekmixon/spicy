@@ -21,6 +21,9 @@
 #include <hilti/compiler/jit.h>
 
 namespace hilti {
+
+struct Plugin;
+
 namespace linker {
 /**
  * Linker meta data associated with a HILTI unit. When HILTI compiles a
@@ -317,7 +320,7 @@ private:
     // Sends a debug dump of all modules parsed so far to an output stream.
     void _dumpASTs(std::ostream& stream, const std::string& prefix, int round = 0);
     // Records a debug dump of all modules parsed so far to disk.
-    void _saveIterationASTs(const std::string& prefix, int round = 0);
+    void _saveIterationASTs(const Plugin& p, const std::string& prefix, int round = 0);
     // Clear any previously computed AST state before beginning a pass over the AST.
     void _resetNodes(const ID& id, Node* root);
 
