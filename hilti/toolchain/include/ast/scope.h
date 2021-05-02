@@ -14,6 +14,7 @@
 
 namespace hilti {
 
+class Declaration;
 class ID;
 
 /**
@@ -26,6 +27,7 @@ public:
     Scope() = default;
     ~Scope() = default;
 
+#if 0
     /**
      * Inserts a new identifier mapping. If a mapping for the ID already
      * exists, the new one is appended to it.
@@ -33,7 +35,8 @@ public:
      * @param id id to map
      * @param n reference to the node that `id` is to be mapped to
      */
-    void insert(const ID& id, NodeRef n);
+    void insert(const ID& id, NodeRef n); // deprecated
+    void insert(std::pair<ID, NodeRef> x);
 
     /**
      * Inserts a new identifier mapping.
@@ -43,13 +46,21 @@ public:
      *          this takes ownership of the node and stores it internally
      */
     void insert(const ID& id, Node&& n);
+#endif
+    void insert(NodeRef&& n);
+    void insert(ID id, NodeRef&& n);
+    void insert(Declaration d, IntrusivePtr<Scope> scope = {}); // d must be fully resolved, won't be seen by visitors
+    void insert(ID id, Declaration d,
+                IntrusivePtr<Scope> scope = {}); // d must be fully resolved, won't be seen by visitors
+    // void insert(const Declaration& d, IntrusivePtr<Scope> scope = {});
+    // void insert(const ID& id, const Declaration& d, IntrusivePtr<Scope> scope = {});
 
     /** Returns true if there's at least one mapping for an ID.  */
     bool has(const ID& id) const { return ! _findID(id).empty(); }
 
     /** Result typer for the lookup methods. */
     struct Referee {
-        NodeRef node;          /**< node that ID maps to */
+        NodeRef node;          /**< node that ID maps to; scope retains ownership */
         std::string qualified; /**< qualified ID with full path used to find it  */
         bool external{};       /**< true if found in a different (imported) module  */
     };
@@ -67,6 +78,8 @@ public:
 
     /** Empties the scope. */
     void clear() { _items.clear(); }
+
+    void initCanonicalIDs(const ID& parent);
 
     /** Returns all mappings of the scope. */
     const auto& items() const { return _items; }
@@ -111,7 +124,7 @@ private:
     std::vector<Referee> _findID(const Scope* scope, const ID& id, bool external = false) const;
 
     ItemMap _items;
-    std::vector<std::shared_ptr<Node>> _nodes; // Nodes without other owners.
+    std::vector<Node> _nodes; // Nodes without other owners; must be fully resolved before insert
 };
 
 } // namespace hilti

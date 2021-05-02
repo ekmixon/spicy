@@ -3,7 +3,7 @@
 /** Interface for HILTI types. */
 class Type(hilti::trait::isType) : hilti::trait::isNode {
     /** Returns true if the type is equivalent to another HILTI type. */
-    bool isEqual(const Type& other) const;
+    bool isEqual(const hilti::Type& other) const;
 
     /**
      * Returns any parameters associated with type. If a type is declared as
@@ -19,29 +19,22 @@ class Type(hilti::trait::isType) : hilti::trait::isNode {
      */
     bool isWildcard() const if hilti::type::trait::isParameterized else false;
 
-    /** Returns the set of flags associated with the type. */
-    type::Flags flags() const;
-
-    /** Returns true if a given type flag has been set. */
-    bool hasFlag(type::Flag f) const;
+    /**
+     * Returns true if the type has been fully resolved.
+     */
+    bool _isResolved(type::ResolvedState* rstate) const;
 
     /** Returns the type of an iterator for this type. */
-    Type iteratorType(bool const_) const if hilti::type::trait::isIterable or hilti::type::trait::isView;
+    const hilti::Type& iteratorType(bool const_) const if hilti::type::trait::isIterable or hilti::type::trait::isView;
 
     /** Returns the type of an view for this type. */
-    Type viewType() const if hilti::type::trait::isViewable;
+    const hilti::Type& viewType() const if hilti::type::trait::isViewable;
 
     /** Returns the type of elements the iterator traveres. */
-    Type dereferencedType() const if hilti::type::trait::isDereferencable;
+    const hilti::Type& dereferencedType() const if hilti::type::trait::isDereferencable;
 
     /** Returns the type of elements the container stores. */
-    Type elementType() const if hilti::type::trait::isIterable;
-
-    /**
-     * Returns the fully deferenced type that this type corresponds to. This,
-     * for example, follows a type ID to the actual type it maps to.
-     */
-    Type effectiveType() const if hilti::type::trait::hasDynamicType;
+    const hilti::Type& elementType() const if hilti::type::trait::isIterable;
 
     /** For internal use. Use ``type::isAllocable` instead. */
     trait _isAllocable() from hilti::type::trait::isAllocable;
@@ -70,32 +63,11 @@ class Type(hilti::trait::isType) : hilti::trait::isNode {
     /** For internal use. Use ``type::isMutable` instead. */
     trait _isMutable() from hilti::type::trait::isMutable;
 
-    /** For internal use. Use ``type::hasDynamicInstead` instead. */
-    trait _hasDynamicType() from hilti::type::trait::hasDynamicType;
-
     /** For internal use. Use ``type::isRuntimeNonTrivial` instead. */
     trait _isRuntimeNonTrivial() from hilti::type::trait::isRuntimeNonTrivial;
 
     /** For internal use. Use ``type::isOnHeap` instead. */
     trait _isOnHeap() from hilti::type::trait::isOnHeap;
-
-    /** For internal use. Use ``type::isConstant()` instead. */
-    bool _isConstant() const;
-
-    /** For internal use. */
-    type::detail::State& _state();
-
-    /**
-     * Returns a HILTI ID associated with the type if any has been set. This
-     * method is implemented for all types in `TypeBase`.
-     */
-    std::optional<ID> typeID() const;
-
-    /**
-     * Returns a C++ ID associated with the type if any has been set. This
-     * method is implemented for all types in `TypeBase`.
-     */
-    std::optional<ID> cxxID() const;
 
     /** Implements the `Node` interface. */
     hilti::node::Properties properties() const;

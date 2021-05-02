@@ -26,12 +26,15 @@ public:
 
     /** Implements the `Type` interface. */
     auto isEqual(const Type& other) const { return node::isEqual(this, other); }
+    /** Implements the `Type` interface. */
+    auto _isResolved(ResolvedState* rstate) const { return true; }
     /** Implements the `Node` interface. */
     auto properties() const { return node::Properties{}; }
 
     bool operator==(const OperandList& other) const { return operands() == other.operands(); }
 
-    static OperandList fromParameters(const std::vector<declaration::Parameter>& params) {
+    template<typename Container>
+    static OperandList fromParameters(const Container& params) {
         std::vector<operator_::Operand> ops;
 
         for ( const auto& p : params ) {

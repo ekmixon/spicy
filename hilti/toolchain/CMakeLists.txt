@@ -84,13 +84,11 @@ set(SOURCES
     src/compiler/plugin.cc
     src/compiler/unit.cc
     src/compiler/visitors/coercer.cc
-    src/compiler/visitors/apply-coercions.cc
-    src/compiler/visitors/coercer.cc
     src/compiler/visitors/importer.cc
+    src/compiler/visitors/normalizer.cc
     src/compiler/visitors/printer.cc
     src/compiler/visitors/renderer.cc
-    src/compiler/visitors/id-resolver.cc
-    src/compiler/visitors/operator-resolver.cc
+    src/compiler/visitors/resolver.cc
     src/compiler/visitors/scope-builder.cc
     src/compiler/visitors/validator.cc
     src/global.cc
@@ -185,6 +183,7 @@ install(CODE "file(REMOVE ${CMAKE_INSTALL_FULL_INCLUDEDIR}/hilti/hilti)") # Get 
 
 add_executable(hilti-toolchain-tests
                tests/main.cc
+               tests/type-erasure.cc
                tests/visitor.cc
                tests/util.cc)
 hilti_link_executable_in_tree(hilti-toolchain-tests PRIVATE)

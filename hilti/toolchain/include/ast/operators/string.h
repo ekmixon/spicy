@@ -39,7 +39,7 @@ Converts the string into a binary representation encoded with the given characte
 END_METHOD
 
 BEGIN_OPERATOR_CUSTOM(string, Modulo)
-    Type result(const std::vector<Expression>& /* ops */) const { return type::String(); }
+    Type result(const node::range<Expression>& /* ops */) const { return type::String(); }
 
     bool isLhs() const { return false; }
 

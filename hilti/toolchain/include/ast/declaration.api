@@ -13,6 +13,9 @@ class Declaration(trait::isDeclaration) : trait::isNode {
      */
     bool isConstant() const;
 
+    const ID& canonicalID() const;
+    void setCanonicalID(ID id);
+
     /**
      * Returns a user-friendly name for the type of object the declararion
      * refers to. This is used in error messages.
@@ -20,7 +23,7 @@ class Declaration(trait::isDeclaration) : trait::isNode {
     std::string displayName() const;
 
     /** Returns true if the declaration is equivalent to another one in HILTI semantics. */
-    bool isEqual(const Declaration& other) const;
+    bool isEqual(const hilti::Declaration& other) const;
 
     /** Implements the `Node` interface. */
     hilti::node::Properties properties() const;

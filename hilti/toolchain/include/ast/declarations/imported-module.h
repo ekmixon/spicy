@@ -18,23 +18,25 @@ namespace hilti {
 namespace declaration {
 
 /** AST node for a declaration of imported module. */
-class ImportedModule : public NodeBase, public hilti::trait::isDeclaration {
+class ImportedModule : public DeclarationBase {
 public:
     ImportedModule(ID id, const std::string& search_extension, Meta m = Meta())
-        : NodeBase({std::move(id)}, std::move(m)), _extension(search_extension) {}
+        : DeclarationBase({std::move(id)}, std::move(m)), _extension(search_extension) {}
 
     ImportedModule(ID id, const std::string& search_extension, std::optional<ID> search_scope, Meta m = Meta())
-        : NodeBase({std::move(id)}, std::move(m)), _extension(search_extension), _scope(std::move(search_scope)) {}
+        : DeclarationBase({std::move(id)}, std::move(m)),
+          _extension(search_extension),
+          _scope(std::move(search_scope)) {}
 
     ImportedModule(ID id, const std::string& search_extension, std::optional<ID> search_scope,
                    std::vector<hilti::rt::filesystem::path> search_dirs, Meta m = Meta())
-        : NodeBase({std::move(id)}, std::move(m)),
+        : DeclarationBase({std::move(id)}, std::move(m)),
           _extension(search_extension),
           _scope(std::move(search_scope)),
           _dirs(std::move(search_dirs)) {}
 
     ImportedModule(ID id, hilti::rt::filesystem::path path, Meta m = Meta())
-        : NodeBase({std::move(id)}, std::move(m)), _path(std::move(path)) {}
+        : DeclarationBase({std::move(id)}, std::move(m)), _path(std::move(path)) {}
 
     Result<hilti::Module> module() const {
         if ( _module )
@@ -47,6 +49,8 @@ public:
     auto path() const { return _path; }
     auto scope() const { return _scope; }
     const auto& searchDirectories() const { return _dirs; }
+
+    void setModuleRef(NodeRef n) { _module = std::move(n); }
 
     bool operator==(const ImportedModule& other) const { return id() == other.id(); }
 
@@ -66,19 +70,6 @@ public:
         return node::Properties{{"extension", _extension.native()},
                                 {"path", _path.native()},
                                 {"scope", (_scope ? _scope->str() : std::string("-"))}};
-    }
-
-    /**
-     * Returns a new imported module declaration with the module reference replaced.
-     *
-     * @param d original declaration
-     * @param n new module reference
-     * @return new declaration that's equal to original one but with the module reference replaced
-     */
-    static Declaration setModule(const ImportedModule& d, NodeRef n) {
-        auto x = Declaration(d)._clone().as<ImportedModule>();
-        x._module = std::move(n);
-        return x;
     }
 
 private:

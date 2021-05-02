@@ -29,9 +29,12 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
             dependencies.push_back(std::move(t));
     }
 
+    auto typeID(const Node& n) { return n.as<Type>().typeID(); }
+    auto cxxID(const Node& n) { return n.as<Type>().cxxID(); }
+
     result_t operator()(const type::Struct& n, const position_t p) {
         auto scope = cxx::ID{cg->unit()->cxxNamespace()};
-        auto sid = cxx::ID{(n.typeID() ? std::string(*n.typeID()) : fmt("struct_%p", &n))};
+        auto sid = cxx::ID{(typeID(p.node) ? std::string(*typeID(p.node)) : fmt("struct_%p", &n))};
 
         if ( sid.namespace_() )
             scope = scope.namespace_();
@@ -104,23 +107,26 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
                         if ( auto func = f.inlineFunction(); func && func->body() ) {
                             auto cxx_body = cxx::Block();
 
-                            // Need a LHS for __self.
-                            auto tid = n.typeID();
+                            if ( ! f.isStatic() ) {
+                                // Need a LHS for __self.
+                                auto tid = typeID(p.node);
 
-                            if ( ! tid )
-                                logger().internalError("Struct type with hooks does not have a type ID");
+                                if ( ! tid )
+                                    logger().internalError("Struct type with hooks does not have a type ID");
 
-                            auto id_module = tid->sub(-2);
-                            auto id_class = tid->sub(-1);
+                                auto id_module = tid->sub(-2);
+                                auto id_class = tid->sub(-1);
 
-                            if ( id_module.empty() )
-                                id_module = cg->hiltiUnit()->id();
+                                if ( id_module.empty() )
+                                    id_module = cg->hiltiUnit()->id();
 
-                            auto id_type = cxx::ID(id_module, id_class);
-                            auto self = cxx::declaration::Local{.id = "__self",
-                                                                .type = "auto",
-                                                                .init = fmt("%s::__self()", id_type)};
-                            cxx_body.addLocal(self);
+                                auto id_type = cxx::ID(id_module, id_class);
+                                auto self = cxx::declaration::Local{.id = "__self",
+                                                                    .type = "auto",
+                                                                    .init = fmt("%s::__self()", id_type)};
+                                cxx_body.addLocal(self);
+                            }
+
                             cg->compile(*func->body(), &cxx_body);
 
                             auto method_impl = cxx::Function{.declaration = d, .body = std::move(cxx_body)};
@@ -130,7 +136,7 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
                         }
 
                         if ( ft->flavor() == type::function::Flavor::Hook ) {
-                            auto tid = n.typeID();
+                            auto tid = typeID(p.node);
 
                             if ( ! tid )
                                 logger().internalError("Struct type with hooks does not have a type ID");
@@ -182,7 +188,7 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
 
                             hook.callee.args.push_back(
                                 cxx::declaration::Argument{.id = "__self",
-                                                           .type = cg->compile(type::ValueReference(n),
+                                                           .type = cg->compile(type::ValueReference(p.node.as<Type>()),
                                                                                codegen::TypeUsage::InOutParameter)});
                             cg->unit()->add(hook);
                         }
@@ -253,15 +259,16 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
     }
 
     result_t operator()(const type::Tuple& n) {
-        for ( const auto& t : n.types() )
-            addDependency(t);
+        for ( const auto& e : n.elements() )
+            addDependency(e.type());
 
         return {};
     }
 
     result_t operator()(const type::Union& n, const position_t p) {
+        assert(typeID(p.node));
         auto scope = cxx::ID{cg->unit()->cxxNamespace()};
-        auto sid = cxx::ID{(n.typeID() ? std::string(*n.typeID()) : fmt("union_%p", &n))};
+        auto sid = cxx::ID{(typeID(p.node) ? std::string(*typeID(p.node)) : fmt("union_%p", &n))};
 
         if ( sid.namespace_() )
             scope = scope.namespace_();
@@ -299,7 +306,7 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
 
     result_t operator()(const type::Enum& n, const position_t p) {
         auto scope = cxx::ID{cg->unit()->cxxNamespace()};
-        auto sid = cxx::ID{(n.typeID() ? std::string(*n.typeID()) : fmt("enum_%p", &n))};
+        auto sid = cxx::ID{(typeID(p.node) ? std::string(*typeID(p.node)) : fmt("enum_%p", &n))};
 
         if ( sid.namespace_() )
             scope = scope.namespace_();
@@ -307,7 +314,8 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
         // We declare the full enum type as part of the forward declarations block, that makes sure it's always fully
         // available. This is e.g., needed so we can set default values for vectors of enums.
         auto id = cxx::ID(scope, sid);
-        auto labels = util::transform(n.labels(), [](auto l) { return std::make_pair(cxx::ID(l.id()), l.value()); });
+        auto labels =
+            util::transform(n.labels(), [](auto l) { return std::make_pair(cxx::ID(l.get().id()), l.get().value()); });
         auto t = cxx::type::Enum{.labels = std::move(labels), .type_name = cxx::ID(id.local())};
         auto decl = cxx::declaration::Type{.id = id, .type = t, .forward_decl = true, .no_using = true};
         dependencies.push_back(decl);
@@ -316,7 +324,7 @@ struct VisitorDeclaration : hilti::visitor::PreOrder<cxx::declaration::Type, Vis
 
     result_t operator()(const type::Exception& n, const position_t p) {
         auto scope = cxx::ID{cg->unit()->cxxNamespace()};
-        auto sid = cxx::ID{(n.typeID() ? std::string(*n.typeID()) : fmt("exception_%p", &n))};
+        auto sid = cxx::ID{(typeID(p.node) ? std::string(*typeID(p.node)) : fmt("exception_%p", &n))};
 
         if ( sid.namespace_() )
             scope = scope.namespace_();
@@ -349,6 +357,9 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
     util::Cache<cxx::ID, CxxTypes>* cache;
     codegen::TypeUsage usage;
 
+    auto typeID(const Node& n) { return n.as<Type>().typeID(); }
+    auto cxxID(const Node& n) { return n.as<Type>().cxxID(); }
+
     result_t operator()(const type::Address& n) { return CxxTypes{.base_type = "hilti::rt::Address"}; }
 
     result_t operator()(const type::Any& n) { return CxxTypes{.base_type = "hilti::rt::any"}; }
@@ -359,12 +370,14 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
 
     result_t operator()(const type::Real& n) { return CxxTypes{.base_type = "double"}; }
 
-    result_t operator()(const type::Enum& n, const position_t p) {
-        if ( auto cxx = n.cxxID() )
+    result_t operator()(const type::Enum& n, position_t p) {
+        assert(typeID(p.node));
+
+        if ( auto cxx = cxxID(p.node) )
             return CxxTypes{.base_type = cxx::Type(*cxx), .default_ = cxx::Expression(cxx::ID(*cxx, "Undef"))};
 
         auto scope = cxx::ID{cg->unit()->cxxNamespace()};
-        auto sid = cxx::ID{(n.typeID() ? std::string(*n.typeID()) : fmt("enum_%p", &n))};
+        auto sid = cxx::ID{(typeID(p.node) ? std::string(*typeID(p.node)) : fmt("enum_%p", &n))};
 
         if ( sid.namespace_() )
             scope = scope.namespace_();
@@ -374,8 +387,8 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
         // Add tailored to_string() function.
         auto cases = util::transform(n.uniqueLabels(), [&](auto l) {
             auto b = cxx::Block();
-            b.addReturn(fmt("\"%s\"", cxx::ID(id.local(), l.id())));
-            return std::make_pair(cxx::Expression(cxx::ID(id, l.id())), std::move(b));
+            b.addReturn(fmt("\"%s\"", cxx::ID(id.local(), l.get().id())));
+            return std::make_pair(cxx::Expression(cxx::ID(id, l.get().id())), std::move(b));
         });
 
         auto default_ = cxx::Block();
@@ -411,19 +424,19 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
         cg->unit()->add(render_decl);
         cg->unit()->add(render_impl);
 
-        cg->addDeclarationFor(n);
+        cg->addDeclarationFor(p.node.as<Type>());
         return CxxTypes{.base_type = std::string(sid), .default_ = cxx::Expression(cxx::ID(sid, "Undef"))};
     }
 
     result_t operator()(const type::Error& n) { return CxxTypes{.base_type = "hilti::rt::result::Error"}; }
 
     result_t operator()(const type::Exception& n, const position_t p) {
-        if ( auto cxx = n.cxxID() )
+        if ( auto cxx = cxxID(p.node) )
             return CxxTypes{.base_type = cxx::Type(*cxx)};
 
-        cg->addDeclarationFor(n);
+        cg->addDeclarationFor(p.node.as<Type>());
 
-        auto sid = cxx::ID{(n.typeID() ? std::string(*n.typeID()) : fmt("exception_%p", &n))};
+        auto sid = cxx::ID{(typeID(p.node) ? std::string(*typeID(p.node)) : fmt("exception_%p", &n))};
         return CxxTypes{.base_type = std::string(sid), .storage = "hilti::rt::Exception"};
     }
 
@@ -445,8 +458,8 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
 
     result_t operator()(const type::map::Iterator& n) {
         auto i = (n.isConstant() ? "const_iterator" : "iterator");
-        auto k = cg->compile(n.containerType().as<type::Map>().keyType(), codegen::TypeUsage::Storage);
-        auto v = cg->compile(n.containerType().as<type::Map>().elementType(), codegen::TypeUsage::Storage);
+        auto k = cg->compile(n.keyType(), codegen::TypeUsage::Storage);
+        auto v = cg->compile(n.valueType(), codegen::TypeUsage::Storage);
 
         auto t = fmt("hilti::rt::Map<%s, %s>::%s", k, v, i);
         return CxxTypes{.base_type = fmt("%s", t)};
@@ -540,12 +553,14 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
 
     result_t operator()(const type::Stream& n) { return CxxTypes{.base_type = "hilti::rt::Stream"}; }
 
-    result_t operator()(const type::Union& n) {
-        if ( auto x = n.cxxID() )
+    result_t operator()(const type::Union& n, position_t p) {
+        assert(typeID(p.node));
+
+        if ( auto x = cxxID(p.node) )
             return CxxTypes{.base_type = cxx::Type(*x)};
 
         auto scope = cxx::ID{cg->unit()->cxxNamespace().namespace_()};
-        auto sid = cxx::ID{scope, (n.typeID() ? std::string(*n.typeID()) : fmt("union_%p", &n))};
+        auto sid = cxx::ID{scope, (typeID(p.node) ? std::string(*typeID(p.node)) : fmt("union_%p", &n))};
         auto ns = sid.namespace_();
 
         if ( cg->prioritizeTypes() )
@@ -570,7 +585,7 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
 
                 cg->unit()->add(render_decl);
                 cg->unit()->add(render_impl);
-                cg->addDeclarationFor(n);
+                cg->addDeclarationFor(p.node.as<Type>());
 
                 return cxx_types;
             });
@@ -659,12 +674,14 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
 
     result_t operator()(const type::String& n) { return CxxTypes{.base_type = "std::string"}; }
 
-    result_t operator()(const type::Struct& n) {
-        if ( auto x = n.cxxID() )
+    result_t operator()(const type::Struct& n, position_t p) {
+        assert(typeID(p.node));
+
+        if ( auto x = cxxID(p.node) )
             return CxxTypes{.base_type = cxx::Type(*x)};
 
         auto scope = cxx::ID{cg->unit()->cxxNamespace().namespace_()};
-        auto sid = cxx::ID{scope, (n.typeID() ? std::string(*n.typeID()) : fmt("struct_%p", &n))};
+        auto sid = cxx::ID{scope, (typeID(p.node) ? std::string(*typeID(p.node)) : fmt("struct_%p", &n))};
         auto ns = sid.namespace_();
 
         if ( cg->prioritizeTypes() )
@@ -689,14 +706,15 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
 
                 cg->unit()->add(render_decl);
                 cg->unit()->add(render_impl);
-                cg->addDeclarationFor(n);
+                cg->addDeclarationFor(p.node.as<Type>());
 
                 return cxx_types;
             });
     }
 
     result_t operator()(const type::Tuple& n) {
-        auto x = util::transform(n.types(), [this](auto t) { return cg->compile(t, codegen::TypeUsage::Storage); });
+        auto x = codegen::transform(n.elements(),
+                                    [this](auto e) { return cg->compile(e.type(), codegen::TypeUsage::Storage); });
         auto t = fmt("std::tuple<%s>", util::join(x, ", "));
         return CxxTypes{.base_type = t};
     }
@@ -708,22 +726,7 @@ struct VisitorStorage : hilti::visitor::PreOrder<CxxTypes, VisitorStorage> {
     result_t operator()(const type::Void& n) { return CxxTypes{.base_type = "void"}; }
 
     result_t operator()(const type::Auto& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-
-        logger().internalError(fmt("codegen: type wrapper (auto) resolves to type %s, which does not have a visitor",
-                                   to_node(n.type()).render()),
-                               n);
-    }
-
-    result_t operator()(const type::Computed& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-
-        logger()
-            .internalError(fmt("codegen: type wrapper (computed) resolves to type %s, which does not have a visitor",
-                               to_node(n.type()).render()),
-                           n);
+        logger().internalError("codegen: automatic type has not been replaced");
     }
 
     result_t operator()(const type::WeakReference& n) {
@@ -787,17 +790,7 @@ struct VisitorTypeInfoPredefined : hilti::visitor::PreOrder<cxx::Expression, Vis
     }
 
     result_t operator()(const type::Auto& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
-    }
-
-    result_t operator()(const type::Computed& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
+        logger().internalError("codegen: automatic type has not been replaced");
     }
 };
 
@@ -806,18 +799,22 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
     VisitorTypeInfoDynamic(CodeGen* cg) : cg(cg) {}
     CodeGen* cg;
 
+    auto typeID(const Node& n) { return n.as<Type>().typeID(); }
+    auto cxxID(const Node& n) { return n.as<Type>().cxxID(); }
+
     result_t operator()(const type::Enum& n) {
         std::vector<std::string> labels;
 
         for ( const auto& l : n.labels() )
-            labels.push_back(fmt("hilti::rt::type_info::enum_::Label{ \"%s\", %d }", cxx::ID(l.id()), l.value()));
+            labels.push_back(
+                fmt("hilti::rt::type_info::enum_::Label{ \"%s\", %d }", cxx::ID(l.get().id()), l.get().value()));
 
         return fmt("hilti::rt::type_info::Enum(std::vector<hilti::rt::type_info::enum_::Label>({%s}))",
                    util::join(labels, ", "));
     }
 
-    result_t operator()(const type::Exception& n) {
-        if ( n.typeID() ) {
+    result_t operator()(const type::Exception& n, position_t p) {
+        if ( typeID(p.node) ) {
             // We use this opportunity to create an empty virtual destructor
             // that will trigger inclusion of vtable for the exception's
             // type; see rt/exception.h. We do this only if we have a type ID
@@ -826,7 +823,7 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
 
             // ID logic follows code in VisitorDeclaration.
             auto scope = cxx::ID{cg->unit()->cxxNamespace()};
-            auto sid = cxx::ID(*n.typeID());
+            auto sid = cxx::ID(*typeID(p.node));
 
             if ( sid.namespace_() )
                 scope = scope.namespace_();
@@ -860,11 +857,10 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
     }
 
     result_t operator()(const type::map::Iterator& n) {
-        const auto& m = n.containerType().as<type::Map>();
         return fmt("hilti::rt::type_info::MapIterator(%s, %s, hilti::rt::type_info::MapIterator::accessor<%s, %s>())",
-                   cg->typeInfo(m.keyType()), cg->typeInfo(m.elementType()),
-                   cg->compile(m.keyType(), codegen::TypeUsage::Storage),
-                   cg->compile(m.elementType(), codegen::TypeUsage::Storage));
+                   cg->typeInfo(n.keyType()), cg->typeInfo(n.valueType()),
+                   cg->compile(n.keyType(), codegen::TypeUsage::Storage),
+                   cg->compile(n.valueType(), codegen::TypeUsage::Storage));
     }
 
     result_t operator()(const type::Optional& n) {
@@ -887,7 +883,7 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
                    cg->typeInfo(n.dereferencedType()), cg->compile(n.dereferencedType(), codegen::TypeUsage::Storage));
     }
 
-    result_t operator()(const type::Struct& n) {
+    result_t operator()(const type::Struct& n, position_t p) {
         std::vector<std::string> fields;
 
         for ( const auto& f : n.fields() ) {
@@ -904,7 +900,7 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
                                cg->compile(f.type(), codegen::TypeUsage::Storage));
 
             fields.push_back(fmt("hilti::rt::type_info::struct_::Field{ \"%s\", %s, offsetof(%s, %s), %s%s }",
-                                 cxx::ID(f.id()), cg->typeInfo(f.type()), cxx::ID(*n.typeID()), cxx::ID(f.id()),
+                                 cxx::ID(f.id()), cg->typeInfo(f.type()), cxx::ID(*typeID(p.node)), cxx::ID(f.id()),
                                  f.isInternal(), accessor));
         }
 
@@ -912,20 +908,20 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
                    util::join(fields, ", "));
     }
 
-    result_t operator()(const type::Tuple& n) {
+    result_t operator()(const type::Tuple& n, position_t p) {
         std::vector<std::string> elems;
-        auto ttype = cg->compile(n, codegen::TypeUsage::Storage);
+        auto ttype = cg->compile(p.node.as<Type>(), codegen::TypeUsage::Storage);
 
         for ( const auto&& [i, e] : util::enumerate(n.elements()) )
             elems.push_back(
                 fmt("hilti::rt::type_info::tuple::Element{ \"%s\", %s, hilti::rt::tuple::elementOffset<%s, %d>() }",
-                    e.first, cg->typeInfo(e.second), ttype, i));
+                    e.id() ? *e.id() : ID(), cg->typeInfo(e.type()), ttype, i));
 
         return fmt("hilti::rt::type_info::Tuple(std::vector<hilti::rt::type_info::tuple::Element>({%s}))",
                    util::join(elems, ", "));
     }
 
-    result_t operator()(const type::Union& n) {
+    result_t operator()(const type::Union& n, position_t p) {
         std::vector<std::string> fields;
 
         for ( const auto& f : n.fields() )
@@ -935,7 +931,7 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
         return fmt(
             "hilti::rt::type_info::Union(std::vector<hilti::rt::type_info::union_::Field>({%s}), "
             "hilti::rt::type_info::Union::accessor<%s>())",
-            util::join(fields, ", "), cg->compile(n, codegen::TypeUsage::Storage));
+            util::join(fields, ", "), cg->compile(p.node.as<Type>(), codegen::TypeUsage::Storage));
     }
     result_t operator()(const type::StrongReference& n) {
         return fmt("hilti::rt::type_info::StrongReference(%s, hilti::rt::type_info::StrongReference::accessor<%s>())",
@@ -975,17 +971,7 @@ struct VisitorTypeInfoDynamic : hilti::visitor::PreOrder<cxx::Expression, Visito
     }
 
     result_t operator()(const type::Auto& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
-    }
-
-    result_t operator()(const type::Computed& n) {
-        if ( auto x = dispatch(n.type()) )
-            return *x;
-        else
-            return {};
+        logger().internalError("codegen: automatic type has not been replaced");
     }
 
     result_t operator()(const type::ResolvedID& n) {

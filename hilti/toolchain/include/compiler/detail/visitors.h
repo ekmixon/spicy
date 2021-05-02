@@ -57,26 +57,24 @@ std::string renderOperatorInstance(const expression::ResolvedOperator& o);
 void renderNode(const Node& n, std::ostream& out, bool include_scopes = false);
 void renderNode(const Node& n, logging::DebugStream stream, bool include_scopes = false);
 
-/**
- * Clears any errors currentluy set in an AST.
- */
-void clearErrors(Node* root);
+namespace ast {
 
-/** Implements the corresponding functionality for the default HILTI compiler plugin. */
-void buildScopes(const std::vector<std::pair<ID, NodeRef>>& modules, Unit* unit);
+void clearErrors(Node* root);
+void buildScopes(Node* root, Unit* unit);
+bool normalize(Node* root, Unit* unit);
+bool coerce(Node* root, Unit* unit);
+bool resolve(Node* root, Unit* unit);
+bool validate(Node* root);
+} // namespace ast
+
+#if 0
 /** Implements the corresponding functionality for the default HILTI compiler plugin. */
 bool resolveIDs(Node* root, Unit* unit);
 /** Implements the corresponding functionality for the default HILTI compiler plugin. */
+bool resolveTypes(Node* root, Unit* unit);
+/** Implements the corresponding functionality for the default HILTI compiler plugin. */
 bool resolveOperators(Node* root, Unit* unit);
-/** Implements the corresponding functionality for the default HILTI compiler plugin. */
-std::optional<Ctor> coerceCtor(Ctor c, const Type& dst, bitmask<CoercionStyle> style);
-/** Implements the corresponding functionality for the default HILTI compiler plugin. */
-std::optional<Type> coerceType(Type t, const Type& dst, bitmask<CoercionStyle> style);
-/** Implements the corresponding functionality for the default HILTI compiler plugin. */
-bool applyCoercions(Node* root, Unit* unit);
-/** Implements the corresponding functionality for the default HILTI compiler plugin. */
-void validateAST(Node* root);
-
+#endif
 
 } // namespace detail
 } // namespace hilti

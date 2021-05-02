@@ -19,8 +19,8 @@ namespace detail {
 // Control block for refering to nodes.
 class Control : public hilti::intrusive_ptr::ManagedObject {
 public:
-    Control(Node* n) : _node(n), _rid(++_rid_counter) {}
-    Node* _node;
+    Control(const Node* n) : _node(n), _rid(++_rid_counter) {}
+    const Node* _node;
     uint64_t _rid;
 
     static uint64_t _rid_counter;
@@ -43,7 +43,7 @@ struct Invalid : std::runtime_error {
  */
 class NodeRef {
 public:
-    explicit NodeRef(Node& n); // NOLINT
+    explicit NodeRef(const Node& n); // NOLINT
     explicit NodeRef(const NodeRef& other) = default;
     NodeRef(NodeRef&& other) = default;
     NodeRef& operator=(const NodeRef& other) = default;
@@ -80,7 +80,7 @@ public:
      *
      * @exception Invalid if the node does not exist anymore
      */
-    Node& operator*() const { return *_node(); }
+    const Node& operator*() const { return *_node(); }
 
     operator const Node&() const { return *_node(); }
 
@@ -88,7 +88,7 @@ public:
     explicit operator bool() const { return _control && _control->_node; }
 
 private:
-    Node* _node() const;
+    const Node* _node() const;
     IntrusivePtr<node_ref::detail::Control> _control;
 };
 

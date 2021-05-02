@@ -2,7 +2,7 @@
 
 class Item(trait::isUnitItem) : hilti::trait::isNode {
     /** Returns the type of the parsed unit item. */
-    Type itemType() const;
+    const Type& itemType() const;
 
     /** Returns true if the unit item is equivalent to another one. */
     bool isEqual(const Item& other) const;

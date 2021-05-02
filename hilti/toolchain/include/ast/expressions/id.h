@@ -9,26 +9,23 @@
 #include <hilti/ast/id.h>
 #include <hilti/ast/node.h>
 #include <hilti/ast/node_ref.h>
-#include <hilti/ast/types/unknown.h>
+#include <hilti/ast/types/auto.h>
 #include <hilti/base/logger.h>
 
 namespace hilti {
 namespace expression {
 
+// TODO: Would be nice for consisteny with type::ResolvedID to move this over
+// to using a NodeRef, but I'm getting dangling references when I'm doing that.
+
 /** AST node for a expression representing a resolved ID. */
 class ResolvedID : public NodeBase, hilti::trait::isExpression {
 public:
-    ResolvedID(ID id, NodeRef r, Meta m = Meta()) : NodeBase({std::move(id)}, std::move(m)), _node(std::move(r)) {
-        assert(_node && _node->isA<Declaration>());
-    }
+    ResolvedID(ID id, Node d, Meta m = Meta()) : NodeBase(nodes(std::move(id), node::makeAlias(std::move(d))), m) {}
 
     const auto& id() const { return child<ID>(0); }
-    auto declaration() const {
-        assert(_node);
-        return _node->as<Declaration>();
-    }
-
-    bool isValid() const { return static_cast<bool>(_node); }
+    const auto& declaration() const { return child<Declaration>(1); }
+    const Node& node() const { return childs()[1]; }
 
     bool operator==(const ResolvedID& other) const {
         return id() == other.id() && declaration() == other.declaration();
@@ -39,25 +36,20 @@ public:
     /** Implements `Expression` interface. */
     bool isTemporary() const { return false; }
     /** Implements `Expression` interface. */
-    Type type() const;
+    const Type& type() const;
     /** Implements `Expression` interface. */
     bool isConstant() const;
     /** Implements `Expression` interface. */
     auto isEqual(const Expression& other) const { return node::isEqual(this, other); }
 
     /** Implements `Node` interface. */
-    auto properties() const {
-        return _node ? node::Properties{{"resolved", _node.renderedRid()}} : node::Properties{{}};
-    }
-
-private:
-    NodeRef _node;
+    auto properties() const { return node::Properties{{}}; }
 };
 
 /** AST node for a expression representing an unresolved ID. */
 class UnresolvedID : public NodeBase, hilti::trait::isExpression {
 public:
-    UnresolvedID(ID id, Meta m = Meta()) : NodeBase({std::move(id)}, std::move(m)) {}
+    UnresolvedID(ID id, Meta m = Meta()) : NodeBase(nodes(std::move(id), type::Auto()), std::move(m)) {}
 
     const auto& id() const { return child<ID>(0); }
 
@@ -66,7 +58,7 @@ public:
     // Expression interface.
     bool isLhs() const { return true; }
     bool isTemporary() const { return false; }
-    Type type() const { return type::unknown; }
+    const Type& type() const { return child<Type>(1); }
     auto isConstant() const { return false; }
     auto isEqual(const Expression& other) const { return node::isEqual(this, other); }
 

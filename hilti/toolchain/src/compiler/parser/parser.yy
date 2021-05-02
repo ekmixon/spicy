@@ -32,8 +32,8 @@ namespace hilti { namespace detail { class Parser; } }
 %verbose
 
 %glr-parser
-%expect 120
-%expect-rr 185
+%expect 115
+%expect-rr 258
 
 %union {}
 %{
@@ -199,7 +199,6 @@ static uint64_t check_int64_range(uint64_t x, bool positive, const hilti::Meta& 
 %token RESULT "result"
 %token RETURN "return"
 %token SCOPE "scope"
-%token SELF "self"
 %token SET "set"
 %token SHIFTLEFT "<<"
 %token SHIFTRIGHT ">>"
@@ -238,7 +237,7 @@ static uint64_t check_int64_range(uint64_t x, bool positive, const hilti::Meta& 
 %type <expression>                  expr tuple_elem tuple_expr member_expr expr_0 expr_1 expr_2 expr_3 expr_4 expr_5 expr_6 expr_7 expr_8 expr_9 expr_a expr_b expr_c expr_d expr_e expr_f expr_g
 %type <expressions>                 opt_tuple_elems1 opt_tuple_elems2 exprs opt_exprs opt_type_arguments
 %type <opt_expression>              opt_func_default_expr
-%type <function>                    function_with_body function_without_body
+%type <function>                    function_with_body method_with_body hook_with_body function_without_body
 %type <function_parameter>          func_param
 %type <function_parameter_kind>     opt_func_param_kind
 %type <function_result>             func_result
@@ -361,7 +360,11 @@ opt_type_arguments
 
 function_decl : opt_linkage FUNCTION function_with_body
                                                  { $$ = hilti::declaration::Function($3, $1, __loc__); }
-              | METHOD function_with_body        { $$ = hilti::declaration::Function($2, hilti::declaration::Linkage::Struct, __loc__); }
+              | METHOD method_with_body          { $$ = hilti::declaration::Function($2, hilti::declaration::Linkage::Struct, __loc__); }
+              | opt_linkage HOOK hook_with_body              { $$ = hilti::declaration::Function($3, $1, __loc__); }
+
+
+              | METHOD method_with_body          { $$ = hilti::declaration::Function($2, hilti::declaration::Linkage::Struct, __loc__); }
               | DECLARE opt_linkage function_without_body ';'
                                                  { $$ = hilti::declaration::Function($3, $2, __loc__); }
               ;
@@ -391,10 +394,24 @@ scoped_function_id:
               | SCOPED_FINALIZE                  { $$ = hilti::ID($1, __loc__); }
 
 function_with_body
-              : opt_func_flavor opt_func_cc func_result scoped_function_id '(' opt_func_params ')' opt_attributes braced_block
+              : opt_func_cc func_result scoped_function_id '(' opt_func_params ')' opt_attributes braced_block
                                                  {
-                                                    auto ftype = hilti::type::Function($3, $6, $1, __loc__);
-                                                    $$ = hilti::Function($4, std::move(ftype), $9, $2, $8, __loc__);
+                                                    auto ftype = hilti::type::Function($2, $5, type::function::Flavor::Standard, __loc__);
+                                                    $$ = hilti::Function($3, std::move(ftype), $8, $1, $7, __loc__);
+                                                 }
+
+method_with_body
+              : opt_func_cc func_result scoped_function_id '(' opt_func_params ')' opt_attributes braced_block
+                                                 {
+                                                    auto ftype = hilti::type::Function($2, $5, type::function::Flavor::Method, __loc__);
+                                                    $$ = hilti::Function($3, std::move(ftype), $8, $1, $7, __loc__);
+                                                 }
+
+hook_with_body
+              : opt_func_cc func_result scoped_function_id '(' opt_func_params ')' opt_attributes braced_block
+                                                 {
+                                                    auto ftype = hilti::type::Function($2, $5, type::function::Flavor::Hook, __loc__);
+                                                    $$ = hilti::Function($3, std::move(ftype), $8, $1, $7, __loc__);
                                                  }
 
 function_without_body
@@ -422,8 +439,7 @@ func_params : func_params ',' func_param { $$ = std::move($1); $$.push_back($3);
 
 func_param      : opt_func_param_kind type local_id opt_func_default_expr
                                                  { $$ = hilti::type::function::Parameter($3, $2, $1, $4, __loc__); }
-                | opt_func_param_kind AUTO local_id opt_func_default_expr
-                                                 { $$ = hilti::type::function::Parameter($3, type::Auto(__loc__), $1, $4, __loc__); }
+                ;
 
 func_result   : type                             { $$ = hilti::type::function::Result(std::move($1), __loc__); }
 
@@ -477,7 +493,7 @@ stmt          : stmt_expr ';'                    { $$ = std::move($1); }
               | SWITCH '(' expr ')' '{' opt_switch_cases '}'
                                                  { $$ = hilti::statement::Switch(std::move($3), std::move($6), __loc__); }
               | SWITCH '(' local_init_decl ')' '{' opt_switch_cases '}'
-                                                 { $$ = hilti::statement::Switch($3, expression::UnresolvedID($3.as<declaration::LocalVariable>().id()), std::move($6), __loc__); }
+                                                 { $$ = hilti::statement::Switch(std::move($3), std::move($6), __loc__); }
               | TRY block try_catches
                                                  { $$ = hilti::statement::Try(std::move($2), std::move($3), __loc__); }
               | ASSERT expr ';'                  { $$ = hilti::statement::Assert(std::move($2), {}, __loc__); }
@@ -626,12 +642,12 @@ tuple_type    : TUPLE type_param_begin '*' type_param_end                { $$ = 
 tuple_type_elems
               : tuple_type_elems ',' tuple_type_elem
                                                  { $$ = std::move($1); $$.push_back(std::move($3)); }
-              | tuple_type_elem                  { $$ = std::vector<std::pair<hilti::ID, hilti::Type>>{ std::move($1) }; }
+              | tuple_type_elem                  { $$ = std::vector<hilti::type::tuple::Element>{ std::move($1) }; }
               ;
 
 tuple_type_elem
-              : type                             { $$ = std::make_pair(hilti::ID(), std::move($1)); }
-              | local_id ':' type                { $$ = std::make_pair(std::move($1), std::move($3)); }
+              : type                             { $$ = hilti::type::tuple::Element(hilti::ID(), std::move($1), __loc__); }
+              | local_id ':' type                { $$ = hilti::type::tuple::Element(std::move($1), std::move($3), __loc__); }
               ;
 
 struct_type   : STRUCT opt_struct_params '{' struct_fields '}'     { $$ = hilti::type::Struct(std::move($2), std::move($4), __loc__); }
@@ -898,12 +914,12 @@ re_pattern_constant
                                                  { $$ = std::move($3); }
 
 opt_map_elems : map_elems                        { $$ = std::move($1); }
-              | /* empty */                      { $$ = std::vector<hilti::ctor::Map::Element>(); }
+              | /* empty */                      { $$ = std::vector<hilti::ctor::map::Element>(); }
 
 map_elems     : map_elems ',' map_elem           { $$ = std::move($1); $$.push_back(std::move($3)); }
-              | map_elem                         { $$ = std::vector<hilti::ctor::Map::Element>(); $$.push_back(std::move($1)); }
+              | map_elem                         { $$ = std::vector<hilti::ctor::map::Element>(); $$.push_back(std::move($1)); }
 
-map_elem      : expr ':' expr                    { $$ = std::make_pair($1, $3); }
+map_elem      : expr ':' expr                    { $$ = hilti::ctor::map::Element($1, $3, __loc__); }
 
 
 attribute     : ATTRIBUTE                       { $$ = hilti::Attribute(std::move($1), __loc__); }

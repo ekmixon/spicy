@@ -31,7 +31,7 @@ public:
 
     std::optional<Expression> priority() const {
         if ( auto p = AttributeSet::find(attributes(), "priority") )
-            return *p->valueAs<Expression>();
+            return *p->valueAsExpression();
 
         return {};
     }

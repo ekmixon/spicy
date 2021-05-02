@@ -51,7 +51,9 @@ public:
     Function() : NodeBase(nodes(node::none, node::none, node::none, node::none), Meta()) {}
 
     const auto& id() const { return child<ID>(0); }
-    auto type() const { return type::effectiveType(child<Type>(1)).as<type::Function>(); }
+    const auto& type() const { return child<Type>(1).as<Type>(); }
+    NodeRef typeRef() { return NodeRef(childs()[1]); }
+    const auto& ftype() const { return child<Type>(1).as<type::Function>(); }
     auto body() const { return childs()[2].tryReferenceAs<Statement>(); }
     auto attributes() const { return childs()[3].tryReferenceAs<AttributeSet>(); }
     auto callingConvention() const { return _cc; }
@@ -62,21 +64,11 @@ public:
                attributes() == other.attributes() && callingConvention() == other.callingConvention();
     }
 
+    /** Internal method for use by builder API only. */
+    Node& _typeNode() { return childs()[1]; }
+
     /** Implements the `Node` interface. */
     auto properties() const { return node::Properties{{"cc", to_string(_cc)}}; }
-
-    /**
-     * Returns a new function with the body replaced.
-     *
-     * @param d original function
-     * @param b new body
-     * @return new function that's equal to original one but with the body replaced
-     */
-    static Function setBody(const Function& d, const Statement& b) {
-        auto x = Function(d);
-        x.childs()[2] = b;
-        return x;
-    }
 
 private:
     function::CallingConvention _cc = function::CallingConvention::Standard;

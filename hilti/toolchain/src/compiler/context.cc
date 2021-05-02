@@ -77,7 +77,7 @@ const CachedModule& Context::registerModule(const ModuleIndex& idx, Node&& modul
     HILTI_DEBUG(logging::debug::Compiler, util::fmt("registering AST for module %s (%s)", idx.id, idx.path));
 
     _modules.emplace_back(std::make_unique<Node>(std::move(module)), nullptr);
-    auto cached = std::make_shared<CachedModule>(idx, NodeRef(*_modules.back().first));
+    auto cached = std::make_shared<CachedModule>(idx, _modules.back().first.get());
     cached->requires_compilation = requires_compilation;
     _modules.back().second = cached;
     _module_cache_by_id.insert({idx.id, cached});

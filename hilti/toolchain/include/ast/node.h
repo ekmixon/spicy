@@ -1,8 +1,8 @@
 // Copyright (c) 2020-2021 by the Zeek Project. See LICENSE for details.
-
 #pragma once
 
 #include <cinttypes>
+#include <functional>
 #include <iostream>
 #include <list>
 #include <map>
@@ -10,9 +10,34 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
+
+namespace std {
+// TODO: Do this differently.
+template<typename T>
+bool operator==(const vector<std::reference_wrapper<T>>& a, const vector<std::reference_wrapper<T>>& b) {
+    if ( &a == &b )
+        return true;
+
+    if ( a.size() != b.size() )
+        return false;
+
+    auto i = a.begin();
+    auto j = b.begin();
+
+    while ( i != a.end() ) {
+        if ( (*i++).get() != (*j++).get() )
+            return false;
+    }
+
+    return true;
+}
+
+} // namespace std
+
 
 namespace hilti {
 namespace trait {
@@ -57,9 +82,16 @@ inline std::string to_string(PropertyValue v) {
 
 /** Importance of reporting an error, relative to others. */
 enum class ErrorPriority {
-    Normal, /**< Normal priority error that will always be reported. */
-    Low     /**< Low priority error that will be reported only if no normal priority ones have been found. */
+    High = 3,   /**< High priority error that will always be reported. */
+    Normal = 2, /**< Normal priority error that will be reported if there are no higher priority ones. */
+    Low = 1,    /**< Low priority error that will be reported if there are no higher priority ones. */
+    NoError = 0 /**< Place-holder for comparision if no error was encountered */
 };
+
+inline bool operator<(ErrorPriority x, ErrorPriority y) {
+    return static_cast<std::underlying_type_t<ErrorPriority>>(x) <
+           static_cast<std::underlying_type_t<ErrorPriority>>(y);
+}
 
 /** Error information associated with nodes. */
 struct Error {
@@ -74,6 +106,247 @@ struct Error {
         return std::tie(message, location) < std::tie(other.message, other.location);
     }
 };
+
+// Adapted from https://www.artificialworlds.net/blog/2017/05/12/c-iterator-wrapperadaptor-example/
+template<typename T>
+class const_range_iterator {
+private:
+    using base = std::vector<Node>::const_iterator;
+    base _wrapped;
+
+    const T& value() const { return (*_wrapped).template as<std::remove_const_t<T>>(); }
+
+public:
+    // Previously provided by std::iterator
+    using value_type = base::value_type;
+    using difference_type = base::difference_type;
+    using pointer = base::pointer;
+    using reference = base::reference;
+    using iterator_category = base::iterator_category;
+
+    explicit const_range_iterator(base i) : _wrapped(i) {}
+    const_range_iterator() {}
+    const T& operator*() const { return value(); }
+    const T& operator->() const { return value(); }
+    bool operator==(const const_range_iterator& other) const { return _wrapped == other._wrapped; }
+    bool operator!=(const const_range_iterator& other) const { return ! (*this == other); }
+    const_range_iterator operator++(int) {
+        auto x = const_range_iterator(_wrapped);
+        ++_wrapped;
+        return x;
+    }
+    const_range_iterator& operator++() {
+        ++_wrapped;
+        return *this;
+    }
+
+    const_range_iterator& operator+=(difference_type i) {
+        _wrapped += i;
+        return *this;
+    }
+
+    const_range_iterator& operator-=(difference_type i) {
+        _wrapped -= i;
+        return *this;
+    }
+
+    const_range_iterator operator+(difference_type i) const { return const_range_iterator(_wrapped + i); }
+    const_range_iterator operator-(difference_type i) const { return const_range_iterator(_wrapped - i); }
+
+    auto operator-(const const_range_iterator& other) const { return _wrapped - other._wrapped; }
+
+    auto node_iter() const { return _wrapped; }
+};
+
+template<typename T>
+class range {
+public:
+    using iterator = const_range_iterator<T>;
+    using const_iterator = const_range_iterator<T>;
+
+    range(std::vector<Node>::const_iterator begin, std::vector<Node>::const_iterator end) : _begin(begin), _end(end) {}
+    // explicit range(const std::vector<Node>& nodes) : range(nodes.begin(), nodes.end()) {} // TODO: need?
+    explicit range() {}
+
+    template<typename Dummy = void, typename Dummy2 = std::enable_if_t<! std::is_same<T, Node>::value, Dummy>>
+    explicit range(const std::vector<Node>& nodes) : range(nodes.begin(), nodes.end()) {}
+
+    auto begin() const { return _begin; }
+    auto end() const { return _end; }
+    auto size() const { return _end - _begin; }
+    const T& front() const { return *_begin; }
+
+    bool empty() const { return _begin == _end; }
+
+    template<typename U>
+    std::vector<U> copy() const {
+        std::vector<U> x;
+        for ( auto i = _begin; i != _end; i++ )
+            x.push_back(i.node_iter()->template as<U>());
+
+        return x;
+    }
+
+    const T& operator[](size_t i) const { return *(_begin + i); }
+
+    bool operator==(const range& other) const {
+        if ( this == &other )
+            return true;
+
+        if ( size() != other.size() )
+            return false;
+
+        auto x = _begin;
+        auto y = other._begin;
+        while ( x != _end ) {
+            if ( ! (*x++ == *y++) )
+                return false;
+        }
+
+        return true;
+    }
+
+private:
+    /*
+     * std::vector<Node> _convert(std::vector<T> x) {
+     *     std::vector<Node> n;
+     *     for ( auto i : x )
+     *         n.push_back(std::move(i));
+     *
+     *     return n;
+     * }
+     */
+    const_range_iterator<T> _begin;
+    const_range_iterator<T> _end;
+};
+
+template<typename T>
+class const_set_iterator {
+private:
+    using base = typename std::vector<std::reference_wrapper<const T>>::const_iterator;
+    base _wrapped;
+
+    const T& value() const { return ((*_wrapped).get()); }
+
+public:
+    // Previously provided by std::iterator
+    using value_type = T;
+    using difference_type = typename base::difference_type;
+    using pointer = typename base::pointer;
+    using reference = typename base::reference;
+    using iterator_category = typename base::iterator_category;
+
+    explicit const_set_iterator(base i) : _wrapped(i) {}
+    const T& operator*() const { return value(); }
+    const T& operator->() const { return value(); }
+    bool operator==(const const_set_iterator& other) const { return _wrapped == other._wrapped; }
+    bool operator!=(const const_set_iterator& other) const { return ! (*this == other); }
+    const_set_iterator operator++(int) {
+        auto x = const_set_iterator(_wrapped);
+        ++_wrapped;
+        return x;
+    }
+    const_set_iterator& operator++() {
+        ++_wrapped;
+        return *this;
+    }
+
+    const_set_iterator& operator+=(difference_type i) {
+        _wrapped += i;
+        return *this;
+    }
+
+    const_set_iterator& operator-=(difference_type i) {
+        _wrapped -= i;
+        return *this;
+    }
+
+    const_set_iterator operator+(difference_type i) const { return _wrapped + i; }
+    const_set_iterator operator-(difference_type i) const { return _wrapped - i; }
+
+    auto operator-(const const_set_iterator& other) const { return _wrapped - other._wrapped; }
+
+    auto node_iter() const { return _wrapped; }
+};
+
+template<typename T>
+class set {
+public:
+    using iterator = const_set_iterator<T>;
+    using const_iterator = const_set_iterator<T>;
+
+    set() {}
+    auto begin() const { return const_iterator(_set.begin()); }
+    auto end() const { return const_iterator(_set.end()); }
+    auto size() const { return _set.size(); }
+    bool empty() const { return _set.empty(); }
+
+    void push_back(const T& x) { _set.push_back(x); }
+
+    const T& operator[](size_t i) const { return _set[i].get(); }
+
+    bool operator==(const set& other) const {
+        if ( this == &other )
+            return true;
+
+        if ( size() != other.size() )
+            return false;
+
+        auto x = begin();
+        auto y = other.begin();
+        while ( x != end() ) {
+            if ( ! (*x++ == *y++) )
+                return false;
+        }
+
+        return true;
+    }
+
+private:
+    std::vector<std::reference_wrapper<const T>> _set;
+};
+
+template<typename A, typename B>
+std::vector<std::pair<std::reference_wrapper<A>, std::reference_wrapper<B>>> zip2(const set<A>& lhs,
+                                                                                  const set<B>& rhs) {
+    std::vector<std::pair<std::reference_wrapper<A>, std::reference_wrapper<B>>> result;
+    for ( std::pair<typename set<A>::const_iterator, typename set<B>::const_iterator> iter =
+              std::pair<typename set<A>::const_iterator, typename set<B>::const_iterator>(lhs.begin(), rhs.begin());
+          iter.first != lhs.end() and iter.second != rhs.end(); ++iter.first, ++iter.second )
+        result.emplace_back(*iter.first, *iter.second);
+    return result;
+}
+
+template<typename A, typename B>
+std::vector<std::pair<std::reference_wrapper<A>, std::reference_wrapper<B>>> zip2(const range<A>& lhs,
+                                                                                  const range<B>& rhs) {
+    std::vector<std::pair<std::reference_wrapper<A>, std::reference_wrapper<B>>> result;
+    for ( std::pair<typename range<A>::const_iterator, typename range<B>::const_iterator> iter =
+              std::pair<typename range<A>::const_iterator, typename range<B>::const_iterator>(lhs.begin(), rhs.begin());
+          iter.first != lhs.end() and iter.second != rhs.end(); ++iter.first, ++iter.second )
+        result.emplace_back(*iter.first, *iter.second);
+    return result;
+}
+
+/** Filters a vector through a boolean predicate. */
+template<typename X, typename F>
+auto filter(const node::range<X>& x, F f) {
+    node::set<X> y;
+    for ( const auto& i : x )
+        if ( f(i) )
+            y.push_back(i);
+    return y;
+}
+
+/** Filters a vector through a boolean predicate. */
+template<typename X, typename F>
+auto filter(const node::set<X>& x, F f) {
+    node::set<X> y;
+    for ( const auto& i : x )
+        if ( f(i) )
+            y.push_back(i);
+    return y;
+}
 
 /**
  * Properties associated with an AST node. A property is a key/value pair
@@ -100,18 +373,19 @@ public:
     template<typename T, typename std::enable_if_t<std::is_base_of<trait::isNode, T>::value>* = nullptr>
     Node(T t) : node::detail::Node(std::move(t)) {}
 
-    Node(const Node& other) : node::detail::Node::Node(other), _scope(other._scope) {}
+    Node(const Node& other) : node::detail::Node::Node(other), _scope(other._scope), _alias(other._alias) {}
     Node(Node&& other) noexcept
         : node::detail::Node::Node(std::move(other)),
           _control_ptr(std::move(other._control_ptr)),
-          _scope(std::move(other._scope)) {
+          _scope(std::move(other._scope)),
+          _alias(other._alias) {
         if ( _control_ptr )
             _control_ptr->_node = this;
     }
 
     Node() = delete;
 
-    explicit Node(IntrusivePtr<hilti::node::detail::Concept> data) : node::detail::Node(std::move(data)) {}
+    // explicit Node(IntrusivePtr<hilti::node::detail::Concept> data) : node::detail::Node(std::move(data)) {}
 
     ~Node() final {
         if ( _control_ptr )
@@ -188,6 +462,19 @@ public:
     }
 
     /**
+     * Associate an error message with the node. The error's location will be
+     * that of the current node.
+     *
+     * @param msg error message to report
+     * @param priority importance of showing the error
+     * @param context further lines of context to show along with error
+     *
+     */
+    void addError(std::string msg, node::ErrorPriority priority, std::vector<std::string> context = {}) {
+        addError(std::move(msg), location(), priority, std::move(context));
+    }
+
+    /**
      * Associate an error message with the node. The error will have normal
      * priority.
      *
@@ -229,6 +516,9 @@ public:
      */
     std::string render(bool include_location = true) const;
 
+    bool isAlias() const { return _alias; }
+    void setAlias() { _alias = true; }
+
     /**
      * Returns a HILTI source code representation of the node and all its
      * children. If the node is not the root of an AST, it's not guaranteed
@@ -266,6 +556,7 @@ public:
      */
     Node& operator=(const Node& n) {
         _scope = n._scope;
+        _alias = n._alias;
         node::detail::ErasedBase::operator=(n);
         return *this;
     }
@@ -276,6 +567,7 @@ public:
      */
     Node& operator=(Node&& n) noexcept {
         _scope = std::move(n._scope);
+        _alias = n._alias;
         node::detail::ErasedBase::operator=(std::move(n));
         return *this;
     }
@@ -296,16 +588,17 @@ private:
 
     // Returns (and potentially) created the control block for this node that
     // NodeRef uses to maintain links to it.
-    IntrusivePtr<node_ref::detail::Control> _control() {
+    IntrusivePtr<node_ref::detail::Control> _control() const {
         if ( ! _control_ptr )
             _control_ptr = make_intrusive<node_ref::detail::Control>(this);
 
         return _control_ptr;
     }
 
-    IntrusivePtr<node_ref::detail::Control> _control_ptr = nullptr;
+    mutable IntrusivePtr<node_ref::detail::Control> _control_ptr = nullptr;
     mutable IntrusivePtr<Scope> _scope = nullptr;
     std::unique_ptr<std::vector<node::Error>> _errors = nullptr;
+    bool _alias = false;
 };
 
 /**
@@ -368,16 +661,19 @@ public:
      * @return childs from `start` to `end`
      */
     template<typename T>
-    std::vector<T> childs(int begin, int end) const {
-        std::vector<T> n;
+    auto childs(int begin, int end) const {
+        auto end_ = (end < 0) ? _childs.end() : _childs.begin() + end;
+        return node::range<T>(_childs.begin() + begin, end_);
+    }
 
-        if ( end < 0 )
-            end = _childs.size();
+    auto childRefs(int begin, int end) {
+        auto end_ = (end < 0) ? _childs.end() : _childs.begin() + end;
+        std::vector<NodeRef> refs;
 
-        for ( auto i = begin; i < end; i++ )
-            n.emplace_back(_childs[i].as<T>());
+        for ( auto c = _childs.begin(); c != end_; c = std::next(c) )
+            refs.push_back(NodeRef(*c));
 
-        return n;
+        return refs;
     }
 
     /**
@@ -387,11 +683,11 @@ public:
      * @return all childs that have type `T`
      */
     template<typename T>
-    std::vector<T> childsOfType() const {
-        std::vector<T> n;
-        for ( auto& c : _childs ) {
-            if ( auto x = c.tryAs<T>() )
-                n.emplace_back(*x);
+    auto childsOfType() const {
+        typename node::set<T> n;
+        for ( auto c = _childs.begin(); c != _childs.end(); c = std::next(c) ) {
+            if ( auto t = c->tryAs<T>() )
+                n.push_back(*t);
         }
 
         return n;
@@ -405,10 +701,21 @@ public:
      */
     template<typename T>
     auto nodesOfType() const {
-        std::vector<std::reference_wrapper<const Node>> n;
-        for ( const auto& c : _childs ) {
-            if ( c.isA<T>() )
-                n.emplace_back(c);
+        typename node::set<Node> n;
+        for ( auto c = _childs.begin(); c != _childs.end(); c = std::next(c) ) {
+            if ( c->isA<T>() )
+                n.push_back(*c);
+        }
+
+        return n;
+    }
+
+    template<typename T>
+    auto refsOfType() const {
+        typename std::vector<NodeRef> n;
+        for ( auto c = _childs.begin(); c != _childs.end(); c = std::next(c) ) {
+            if ( c->isA<T>() )
+                n.push_back(NodeRef(*c));
         }
 
         return n;
@@ -416,10 +723,10 @@ public:
 
     template<typename T>
     auto nodesOfType() {
-        std::vector<std::reference_wrapper<Node>> n;
-        for ( auto& c : _childs ) {
-            if ( c.isA<T>() )
-                n.emplace_back(c);
+        typename node::set<Node> n;
+        for ( auto c = _childs.begin(); c != _childs.end(); ++c ) {
+            if ( c->isA<T>() )
+                n.push_back(*c);
         }
 
         return n;
@@ -477,6 +784,12 @@ public:
 private:
     None() : NodeBase(Meta()) {}
 };
+
+inline Node makeAlias(const Node& n) {
+    auto x = Node(n);
+    x.setAlias();
+    return x;
+}
 
 /** Singleton. */
 static const Node none = None::create();
@@ -541,6 +854,15 @@ std::vector<Node> nodes(std::set<T> t) {
     return v;
 }
 
+template<typename T>
+std::vector<Node> nodes(node::range<T> t) {
+    std::vector<Node> v;
+    v.reserve(t.size());
+    for ( const auto& i : t )
+        v.emplace_back(std::move(i));
+    return v;
+}
+
 /**
  * Creates `Node` instances for a vector of pairs of objects all implementing
  * the `Node` interface. The pair will be flattened in the result.
@@ -580,7 +902,7 @@ std::vector<Node> nodes(T t, Ts... ts) {
 namespace node {
 template<typename T, typename Other, IF_DERIVED_FROM(T, trait::isNode), IF_DERIVED_FROM(Other, trait::isNode)>
 bool isEqual(const T* this_, const Other& other) {
-    if ( auto o = other.template tryAs<T>() )
+    if ( const auto o = other.template tryAs<T>() )
         return *this_ == *o;
 
     return false;

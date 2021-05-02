@@ -13,8 +13,12 @@
 namespace hilti {
 namespace type {
 
-/** AST node for a resolved type ID. */
-class ResolvedID : public TypeBase, trait::hasDynamicType {
+/**
+ * AST node for a resolved type ID.
+ *
+ * DEPRECARED: No longer use.
+ */
+class ResolvedID : public TypeBase {
 public:
     ResolvedID(::hilti::ID id, NodeRef r, Meta m = Meta())
         : TypeBase({std::move(id)}, std::move(m)), _node(std::move(std::move(r))) {
@@ -22,11 +26,11 @@ public:
     }
 
     const auto& id() const { return child<::hilti::ID>(0); }
-    auto declaration() const {
+    const auto& declaration() const {
         assert(_node);
         return _node->as<Declaration>();
     }
-    auto type() const {
+    const auto& type() const {
         assert(_node);
         return _node->as<declaration::Type>().type();
     }
@@ -38,7 +42,7 @@ public:
     /** Implements the `Type` interface. */
     bool isEqual(const Type& other) const { return type() == type::effectiveType(other); }
     /** Implements the `Type` interface. */
-    Type effectiveType() const { return type(); }
+    auto _isResolved(ResolvedState* rstate) const { return type::isResolved(type(), rstate); }
 
     /** Implements the `Node` interface. */
     auto properties() const {
@@ -60,6 +64,8 @@ public:
 
     // Type interface.
     auto isEqual(const Type& other) const { return node::isEqual(this, other); }
+    /** Implements the `Type` interface. */
+    auto _isResolved(ResolvedState* rstate) const { return false; }
 
     // Node interface.
     auto properties() const { return node::Properties{}; }

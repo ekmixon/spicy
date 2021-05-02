@@ -9,6 +9,8 @@
 #include <hilti/compiler/detail/visitors.h>
 #include <hilti/global.h>
 
+#include "ast/node.h"
+
 using namespace hilti;
 using util::fmt;
 
@@ -66,10 +68,10 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
     void operator()(const Function& f, position_t p) {
         if ( auto attrs = f.attributes() ) {
             if ( auto prio = attrs->find("&priority") ) {
-                if ( f.type().flavor() != type::function::Flavor::Hook )
+                if ( f.ftype().flavor() != type::function::Flavor::Hook )
                     error("only hooks can have priorities", p);
 
-                else if ( auto x = prio->valueAs<int64_t>(); ! x )
+                else if ( auto x = prio->valueAsInteger(); ! x )
                     error(x.error(), p);
             }
         }
@@ -113,7 +115,7 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
 
     void operator()(const declaration::Parameter& n, position_t p) {
         if ( ! n.type().isA<type::Auto>() ) {
-            if ( ! type::isAllocable(n.type()) && n.type() != type::Any() )
+            if ( ! type::isAllocable(n.type()) && type::nonConstant(n.type()) != type::Any() )
                 error(fmt("type '%s' cannot be used for function parameter", n.type()), p);
         }
 
@@ -182,14 +184,14 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
     }
 
     void operator()(const ctor::Map& n, position_t p) {
-        if ( ! n.value().empty() && (n.keyType() == type::unknown || n.elementType() == type::unknown) )
+        if ( ! n.value().empty() && (n.keyType() == type::unknown || n.valueType() == type::unknown) )
             error("map elements have inconsistent types", p);
     }
 
     void operator()(const ctor::Null& c, position_t p) {}
 
     void operator()(const ctor::SignedInteger& n, position_t p) {
-        auto [min, max] = util::signed_integer_range(n.type().width());
+        auto [min, max] = util::signed_integer_range(n.width());
 
         if ( n.value() < min || n.value() > max )
             error("integer value out of range for type", p);
@@ -205,7 +207,7 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
     }
 
     void operator()(const ctor::UnsignedInteger& n, position_t p) {
-        auto [min, max] = util::unsigned_integer_range(n.type().width());
+        auto [min, max] = util::unsigned_integer_range(n.width());
 
         if ( n.value() < min || n.value() > max )
             error("integer value out of range for type", p);
@@ -242,13 +244,12 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
                   p);
     }
 
-    void operator()(const expression::TypeWrapped& n, position_t p) {
-        if ( n.validateTypeMatch() && n.expression().type() != n.type() )
-            error(fmt("type mismatch, expression has type '%s', but expected '%s'", n.expression().type(), n.type()),
-                  p);
-    }
-
     void operator()(const expression::UnresolvedID& n, position_t p) {
+        if ( auto decl = p.findParent<Declaration>(); decl && ! decl->get().isA<declaration::Function>() ) {
+            if ( n.id() == decl->get().id() )
+                error("ID cannot be used inside its own declaration", p);
+        }
+
         // We prefer the error message from a parent UnresolvedOperator.
         if ( ! p.node.hasErrors() && ! p.parent().isA<expression::UnresolvedOperator>() )
             error("unresolved ID", p);
@@ -294,7 +295,7 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
             return;
         }
 
-        if ( func->get().type().result().type() == type::Void() ) {
+        if ( func->get().ftype().result().type() == type::Void() ) {
             if ( n.expression() )
                 error("void function cannot return a value", p);
         }
@@ -344,13 +345,6 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
             error("'while' header lacking both condition and declaration", p);
     }
 
-    void operator()(const expression::ResolvedID& n, position_t p) {
-        if ( auto decl = p.findParent<Declaration>(); decl && ! decl->get().isA<declaration::Function>() ) {
-            if ( n.id() == decl->get().id() )
-                error("ID cannot be used inside its own declaration", p);
-        }
-    }
-
     void operator()(const expression::ResolvedOperator& n, position_t p) {
         // We are running after both overload resolution and the
         // apply-coercion pass, so operands types are ensured to be fine at
@@ -359,14 +353,14 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
     }
 
     void operator()(const expression::UnresolvedOperator& n, position_t p) {
-        error(fmt("unsupported operator: %s", hilti::detail::renderOperatorInstance(n)), p, node::ErrorPriority::Low);
+        if ( p.node.errors().empty() )
+            error(fmt("unsupported operator: %s", hilti::detail::renderOperatorInstance(n)), p);
     }
 
     ////// Types
 
     void operator()(const type::Auto& n, position_t p) {
-        if ( ! n.isSet() )
-            error("'auto' type has not been resolved", p);
+        error("automatic type has not been resolved", p, node::ErrorPriority::Low);
     }
 
     void operator()(const type::Exception& n, position_t p) {
@@ -505,9 +499,9 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
     }
 
     void operator()(const type::Tuple& n, position_t p) {
-        for ( const auto& t : n.types() ) {
-            if ( ! type::isAllocable(t) )
-                error(fmt("type '%s' cannot be used inside a tuple", t), p);
+        for ( const auto& e : n.elements() ) {
+            if ( ! type::isAllocable(e.type()) )
+                error(fmt("type '%s' cannot be used inside a tuple", e.type()), p);
         }
     }
 
@@ -530,7 +524,7 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
         // We reuse the _checkStructArguments() here, that's why this operator is covered here.
         if ( auto t = n.operands()[0].type().tryAs<type::Type_>() ) {
             if ( auto st = t->typeValue().tryAs<type::Struct>() ) {
-                std::vector<Expression> args;
+                node::range<Expression> args;
                 if ( n.operands().size() > 1 ) {
                     auto ctor = n.operands()[1].as<expression::Ctor>().ctor();
                     if ( auto x = ctor.tryAs<ctor::Coerced>() )
@@ -544,7 +538,7 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
         }
     }
 
-    void _checkStructArguments(const std::vector<Expression>& have, const std::vector<type::function::Parameter>& want,
+    void _checkStructArguments(const node::range<Expression>& have, const node::set<type::function::Parameter>& want,
                                position_t& p) {
         if ( have.size() > want.size() )
             error(fmt("type expects %u parameter%s, but receives %u", have.size(), (have.size() > 1 ? "s" : ""),
@@ -566,8 +560,12 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
 
 } // anonymous namespace
 
-void hilti::detail::validateAST(Node* root) {
+bool hilti::detail::ast::validate(Node* root) {
+    util::timing::Collector _("hilti/compiler/ast/validator");
+
     auto v = Visitor();
     for ( auto i : v.walk(root) )
         v.dispatch(i);
+
+    return false;
 }

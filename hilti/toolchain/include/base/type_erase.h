@@ -23,7 +23,7 @@ namespace hilti::util::type_erasure {
 // actual type, and then print out a summary of the top types at the end as
 // part of the timing summary.
 //
-// #define HILTI_TYPE_ERASURE_PROFILE
+#define HILTI_TYPE_ERASURE_PROFILE
 
 namespace trait {
 class TypeErased {};
@@ -152,7 +152,6 @@ public:
     ErasedBase(T t, ConceptArgs&&... args)
         : _data(make_intrusive<Model<T>>(std::move(t), std::forward<ConceptArgs>(args)...)) {}
 
-    explicit ErasedBase(IntrusivePtr<Concept> data) : _data(std::move(data)) {}
     ErasedBase& operator=(IntrusivePtr<Concept> data) {
         _data = std::move(data);
         ;
@@ -217,7 +216,7 @@ public:
 
     /** Attempts to cast the contained object into a specified type. */
     template<typename T>
-    std::optional<T> tryAs() const {
+    optional_ref<const T> tryAs() const {
         if ( auto p = _tryAs<T>() )
             return *p;
 
@@ -225,6 +224,7 @@ public:
     }
 
     /** Attempts to cast the contained object into a specified type. */
+    // TODO Replace with tryAs()
     template<typename T>
     optional_ref<const T> tryReferenceAs() const {
         if ( auto p = _tryAs<T>() )

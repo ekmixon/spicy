@@ -3,7 +3,7 @@
 /** Interface for HILTI constructors. */
 class Ctor(trait::isCtor) : trait::isNode {
     /** Returns the HILTI `Type` of the constructor's value. */
-    Type type() const;
+    const Type& type() const;
 
     /**
      * Returns true if the constructor's value is a value that will never

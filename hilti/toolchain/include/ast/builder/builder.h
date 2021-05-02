@@ -197,8 +197,8 @@ public:
         return SwitchProxy(this, lastStatement<statement::Switch>());
     }
 
-    auto addSwitch(const statement::Declaration& init, Expression cond, Meta m = Meta()) {
-        _block._add(statement::Switch(init.declaration(), std::move(cond), {}, std::move(m)));
+    auto addSwitch(const statement::Declaration& cond, Meta m = Meta()) {
+        _block._add(statement::Switch(cond.declaration(), {}, std::move(m)));
         return SwitchProxy(this, lastStatement<statement::Switch>());
     }
 

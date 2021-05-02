@@ -228,7 +228,9 @@ void Unit::_generateCode(Formatter& f, bool prototypes_only) {
         // Write out those types first that we have in _types_in_order.
         for ( const auto& id : _types_in_order ) {
             auto i = _types.find(id);
-            assert(i != _types.end());
+            if ( i != _types.end() )
+                continue;
+
             auto& t = i->second;
             if ( t.id.namespace_() == ns && ! t.forward_decl )
                 f << t;

@@ -1,5 +1,6 @@
 // Copyright (c) 2020-2021 by the Zeek Project. See LICENSE for details.
 
+#if 0
 #pragma once
 
 #include <string>
@@ -11,7 +12,6 @@
 
 namespace hilti {
 namespace declaration {
-
 /**
  * AST node for a declaration that forwards all methods to another one. This
  * is useful to bind to nodes with declarations that may later be replaced.
@@ -19,7 +19,7 @@ namespace declaration {
  * declaration itself; the code generator won't emit any corresponding
  * declaration for it.
  */
-class Forward : public NodeBase, public hilti::trait::isDeclaration {
+class Forward : public DeclarationBase {
 public:
     using Callback = std::function<Declaration()>;
 
@@ -49,3 +49,4 @@ private:
 
 } // namespace declaration
 } // namespace hilti
+#endif

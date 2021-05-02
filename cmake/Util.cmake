@@ -166,32 +166,32 @@ endfunction ()
 
 # Wrapper around `BISON_TARGET` with Spicy-specific preprocessing.
 macro(BISON_TARGET_PP Name BisonInput BisonOutput)
-    # Name of the preprocessed Bison input.
-    string(JOIN "." BisonInputPP "${BisonOutput}" "pp")
-
-    # Preprocess the input file.
-    file(READ ${BisonInput} input)
-    if (${BISON_VERSION} VERSION_LESS "3.3.0")
-        # In versions <bison-3.3.0 `api.parser.name` was called `parser_class_name`.
-        string(REPLACE "%require \"3.3\"" "%require \"3.0\"" input "${input}")
-        string(REPLACE "api.parser.class" "parser_class_name" input "${input}")
-    endif()
-    file(WRITE ${BisonInputPP} "${input}")
-
-    # Pass preprocessed file to `BISON_TARGET`.
+    BISON_TARGET(${ARGV})
+    # # Name of the preprocessed Bison input.
+    # string(JOIN "." BisonInputPP "${BisonOutput}" "pp")
     #
-    # TODO(bbannier): Since `ARGV` is a list of lists normal list manipulations like
-    # `list(REPLACE_AT ...)` do not seem to work so we create a new output list.
-    set(i 0)
-    foreach(arg ${ARGV})
-        if (i EQUAL 1)
-            list(APPEND args "${BisonInputPP}")
-        else()
-            list(APPEND args "${arg}")
-        endif()
-        MATH(EXPR i "${i}+1")
-    endforeach()
-
-    # Invoke the actual Bison processing.
-    BISON_TARGET(${args})
+    # # Preprocess the input file.
+    # file(READ ${BisonInput} input)
+    # if (${BISON_VERSION} VERSION_LESS "3.3.0")
+    #     # In versions <bison-3.3.0 `api.parser.name` was called `parser_class_name`.
+    #     string(REPLACE "%require \"3.3\"" "%require \"3.0\"" input "${input}")
+    #     string(REPLACE "api.parser.class" "parser_class_name" input "${input}")
+    # endif()
+    # file(WRITE ${BisonInputPP} "${input}")
+    #
+    # # Pass preprocessed file to `BISON_TARGET`.
+    # #
+    # # TODO(bbannier): Since `ARGV` is a list of lists normal list manipulations like
+    # # `list(REPLACE_AT ...)` do not seem to work so we create a new output list.
+    # set(i 0)
+    # foreach(arg ${ARGV})
+    #     if (i EQUAL 1)
+    #         list(APPEND args "${BisonInputPP}")
+    #     else()
+    #         list(APPEND args "${arg}")
+    #     endif()
+    #     MATH(EXPR i "${i}+1")
+    # endforeach()
+    #
+    # # Invoke the actual Bison processing.
 endmacro()

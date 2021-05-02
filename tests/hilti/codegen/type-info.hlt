@@ -1,4 +1,5 @@
 # @TEST-EXEC: spicy-build -d -S %INPUT type-info.cc && ./a.out
+# @TEST-KNOWN-FAILURE: TODO: This currently fails because we don't have spicy-build (or: it end up picking up an outdated spicy-build if the system happens to have one)
 
 module Test {
 

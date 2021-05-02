@@ -38,6 +38,37 @@ inline bool operator!=(const Expression& e1, const Expression& e2) { return ! (e
 
 } // namespace detail
 
+inline bool isResolved(const detail::Expression& e, type::ResolvedState* rstate = nullptr) {
+    return type::isResolved(e.type(), rstate);
+}
+
+inline bool isResolved(const std::vector<detail::Expression>& exprs, type::ResolvedState* rstate = nullptr) {
+    for ( const auto& e : exprs ) {
+        if ( ! type::isResolved(e.type(), rstate) )
+            return false;
+    }
+
+    return true;
+}
+
+inline bool isResolved(const node::range<detail::Expression>& exprs, type::ResolvedState* rstate = nullptr) {
+    for ( const auto& e : exprs ) {
+        if ( ! type::isResolved(e.type(), rstate) )
+            return false;
+    }
+
+    return true;
+}
+
+inline bool isResolved(const node::set<detail::Expression>& exprs, type::ResolvedState* rstate = nullptr) {
+    for ( const auto& e : exprs ) {
+        if ( ! type::isResolved(e.type(), rstate) )
+            return false;
+    }
+
+    return true;
+}
+
 } // namespace expression
 
 using Expression = expression::detail::Expression;

@@ -24,6 +24,7 @@ hilti::type::struct_::Field : isNode
 hilti::statement::switch_::Case : isNode
 hilti::statement::try_::Catch : isNode
 hilti::type::enum_::Label : isNode
+hilti::type::tuple::Element : isNode
 
 hilti::ctor::Address : isCtor
 hilti::ctor::Bool : isCtor
@@ -36,6 +37,7 @@ hilti::ctor::Exception : isCtor
 hilti::ctor::Interval : isCtor
 hilti::ctor::List : isCtor
 hilti::ctor::Map : isCtor
+hilti::ctor::map::Element : isNode
 hilti::ctor::Network : isCtor
 hilti::ctor::Null : isCtor
 hilti::ctor::Optional : isCtor
@@ -49,6 +51,7 @@ hilti::ctor::Stream : isCtor
 hilti::ctor::String : isCtor
 hilti::ctor::StrongReference : isCtor
 hilti::ctor::Struct : isCtor
+hilti::ctor::struct_::Field : isNode
 hilti::ctor::Time : isCtor
 hilti::ctor::Tuple : isCtor
 hilti::ctor::UnsignedInteger : isCtor
@@ -59,7 +62,6 @@ hilti::ctor::ValueReference : isCtor
 
 hilti::declaration::Constant : isDeclaration
 hilti::declaration::Expression : isDeclaration
-hilti::declaration::Forward : isDeclaration
 hilti::declaration::Function : isDeclaration
 hilti::declaration::GlobalVariable : isDeclaration
 hilti::declaration::ImportedModule : isDeclaration
@@ -114,7 +116,6 @@ hilti::type::Any : isType
 hilti::type::Auto : isType
 hilti::type::Bool : isType
 hilti::type::Bytes : isType
-hilti::type::Computed : isType
 hilti::type::DocOnly : isType
 hilti::type::Enum : isType
 hilti::type::Error : isType

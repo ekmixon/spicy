@@ -23,6 +23,8 @@ using namespace hilti::detail::codegen;
 
 namespace {
 
+// This visitor will only receive AST nodes of the first two levels (i.e.,
+// the modules, and its declarations).
 struct GlobalsVisitor : hilti::visitor::PreOrder<void, GlobalsVisitor> {
     explicit GlobalsVisitor(CodeGen* cg, bool include_implementation)
         : cg(cg), include_implementation(include_implementation) {}
@@ -39,7 +41,10 @@ struct GlobalsVisitor : hilti::visitor::PreOrder<void, GlobalsVisitor> {
     static void addDeclarations(CodeGen* cg, const Node& module, const ID& module_id, cxx::Unit* unit,
                                 bool include_implementation) {
         auto v = GlobalsVisitor(cg, include_implementation);
-        for ( auto i : v.walk(module) )
+
+        v.dispatch(module);
+
+        for ( const auto& i : module.childs() )
             v.dispatch(i);
 
         if ( v.globals.empty() && v.constants.empty() )
@@ -118,8 +123,8 @@ struct GlobalsVisitor : hilti::visitor::PreOrder<void, GlobalsVisitor> {
         return cxx::type::Struct{.members = std::move(fields), .type_name = "__globals_t"};
     }
 
-    void operator()(const declaration::GlobalVariable& n) {
-        auto args = util::transform(n.typeArguments(), [this](auto a) { return cg->compile(a); });
+    void operator()(const declaration::GlobalVariable& n, position_t p) {
+        auto args = codegen::transform(n.typeArguments(), [this](auto a) { return cg->compile(a); });
         auto init = n.init() ? cg->compile(*n.init()) : cg->typeDefaultValue(n.type());
         auto x = cxx::declaration::Global{.id = {cg->unit()->cxxNamespace(), n.id()},
                                           .type = cg->compile(n.type(), codegen::TypeUsage::Storage),
@@ -130,7 +135,7 @@ struct GlobalsVisitor : hilti::visitor::PreOrder<void, GlobalsVisitor> {
         globals.push_back(x);
     }
 
-    void operator()(const declaration::Constant& n) {
+    void operator()(const declaration::Constant& n, position_t p) {
         auto x = cxx::declaration::Global{.id = {cg->unit()->cxxNamespace(), n.id()},
                                           .type = cg->compile(n.type(), codegen::TypeUsage::Storage),
                                           .init = cg->compile(n.value()),
@@ -139,12 +144,17 @@ struct GlobalsVisitor : hilti::visitor::PreOrder<void, GlobalsVisitor> {
         constants.push_back(x);
     }
 
-    void operator()(const declaration::Type& n) {
-        if ( include_implementation )
+    void operator()(const declaration::Type& n, position_t p) {
+        assert(n.typeID());
+        if ( include_implementation ) {
+            cg->compile(n.type(), codegen::TypeUsage::Storage);
             cg->addTypeInfoDefinition(n.type());
+        }
     }
 };
 
+// This visitor will only receive AST nodes of the first two levels (i.e.,
+// the modules, and its declarations).
 struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
     Visitor(CodeGen* cg, const Scope& module_scope, cxx::Unit* unit) : cg(cg), unit(unit), module_scope(module_scope) {}
     CodeGen* cg;
@@ -216,11 +226,11 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
             return;
 
         auto f = n.function();
-        auto ft = f.type();
+        auto ft = f.ftype();
         auto ns = unit->cxxNamespace();
         auto id = n.id();
         auto linkage = n.linkage();
-        auto is_hook = (n.function().type().flavor() == type::function::Flavor::Hook);
+        auto is_hook = (n.function().ftype().flavor() == type::function::Flavor::Hook);
 
         auto id_module = n.id().sub(-3);
 
@@ -239,7 +249,7 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
 
         if ( auto a = AttributeSet::find(n.function().attributes(), "&cxxname") ) {
             // Just add the prototype. Make sure to skip any custom namespacing.
-            d.id = cxx::ID(fmt("::%s", *a->valueAs<std::string>()));
+            d.id = cxx::ID(fmt("::%s", *a->valueAsString()));
             cg->unit()->add(d);
             return;
         }
@@ -247,7 +257,7 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
         int64_t priority = 0;
         if ( is_hook && f.attributes() ) {
             if ( auto x = f.attributes()->find("&priority") ) {
-                if ( auto i = x->valueAs<int64_t>() )
+                if ( auto i = x->valueAsInteger() )
                     priority = *i;
                 else
                     // Should have been caught earlier already.
@@ -270,9 +280,6 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
             // Adapt the function we generate.
             d.linkage = "extern";
             d.id = id_hook_impl;
-
-            auto self = scope::lookupID<declaration::Type>(id_struct_type, p, "type");
-            assert(self);
 
             // TODO(robin): This should compile the struct type, not hardcode
             // the runtime representation. However, we don't have access to
@@ -355,7 +362,7 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
             body.addStatementAtFront("hilti::rt::detail::checkStack()");
 
         if ( n.linkage() == declaration::Linkage::Struct && ! f.isStatic() ) {
-            if ( ! is_hook ) {
+            if ( ! is_hook && ! f.isStatic() ) {
                 // Need a LHS value for __self.
                 auto self = cxx::declaration::Local{.id = "__self",
                                                     .type = "auto",
@@ -372,7 +379,7 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
             std::vector<cxx::Expression> args;
             std::vector<std::string> fmts;
 
-            for ( const auto& p : f.type().parameters() ) {
+            for ( const auto& p : f.ftype().parameters() ) {
                 args.emplace_back(fmt(", %s", cxx::ID(p.id())));
                 fmts.emplace_back("%s");
             }
@@ -481,8 +488,6 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
             cg->unit()->addPreInitialization(call_preinit_func);
         }
     }
-
-    void operator()(const declaration::Type& n) { cg->compile(n.type(), codegen::TypeUsage::Storage); }
 };
 
 } // anonymous namespace
@@ -562,16 +567,34 @@ cxx::declaration::Function CodeGen::compile(const ID& id, type::Function ft, dec
 
     return cxx::declaration::Function{.result = result_(),
                                       .id = {ns, cxx_id},
-                                      .args = util::transform(ft.parameters(), param_),
+                                      .args = codegen::transform(ft.parameters(), param_),
                                       .linkage = linkage_()};
 }
 
-std::vector<cxx::Expression> CodeGen::compileCallArguments(const std::vector<Expression>& args,
-                                                           const std::vector<declaration::Parameter>& params) {
-    auto kinds = util::transform(params, [](auto& x) { return x.kind(); });
-    return util::transform(util::zip2(args, kinds), [this](auto& x) {
-        return compile(x.first, x.second == declaration::parameter::Kind::InOut);
-    });
+std::vector<cxx::Expression> CodeGen::compileCallArguments(const node::range<Expression>& args,
+                                                           const node::set<declaration::Parameter>& params) {
+    assert(args.size() == params.size());
+
+    auto kinds = codegen::transform(params, [](auto& x) { return x.kind(); });
+
+    std::vector<cxx::Expression> x;
+    for ( int i = 0; i < args.size(); i++ )
+        x.emplace_back(compile(args[i], params[i].kind() == declaration::parameter::Kind::InOut));
+
+    return x;
+}
+
+std::vector<cxx::Expression> CodeGen::compileCallArguments(const node::range<Expression>& args,
+                                                           const node::range<declaration::Parameter>& params) {
+    assert(args.size() == params.size());
+
+    auto kinds = codegen::transform(params, [](auto& x) { return x.kind(); });
+
+    std::vector<cxx::Expression> x;
+    for ( int i = 0; i < args.size(); i++ )
+        x.emplace_back(compile(args[i], params[i].kind() == declaration::parameter::Kind::InOut));
+
+    return x;
 }
 
 Result<cxx::Unit> CodeGen::compileModule(Node& root, hilti::Unit* hilti_unit, bool include_implementation) {
@@ -581,7 +604,9 @@ Result<cxx::Unit> CodeGen::compileModule(Node& root, hilti::Unit* hilti_unit, bo
     _hilti_unit = hilti_unit;
     auto v = Visitor(this, *root.scope(), _cxx_unit.get());
 
-    for ( auto i : v.walk(&root) )
+    v.dispatch(root);
+
+    for ( auto i : root.childs() )
         v.dispatch(i);
 
     GlobalsVisitor::addDeclarations(this, root, ID(std::string(_cxx_unit->moduleID())), _cxx_unit.get(),

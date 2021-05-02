@@ -169,9 +169,9 @@ enable_testing()
 
 # Add subdirectories.
 add_subdirectory(hilti)
-add_subdirectory(spicy)
+#add_subdirectory(spicy)
 add_subdirectory(scripts)
-add_subdirectory(ci/fuzz)
+#add_subdirectory(ci/fuzz)
 
 option(BUILD_ZEEK_PLUGIN "Whether to build Zeek spicy-plugin and spicy-analyzers as submodules. Their preferred installation method is via 'zkg'." OFF)
 

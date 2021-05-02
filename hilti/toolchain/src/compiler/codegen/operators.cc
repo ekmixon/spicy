@@ -37,6 +37,10 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         return util::transform(exprs, [&](const auto& e) { return cg->compile(e); });
     }
 
+    auto compileExpressions(const node::range<Expression>& exprs) {
+        return codegen::transform(exprs, [&](const auto& e) { return cg->compile(e); });
+    }
+
     auto tupleArguments(const expression::ResolvedOperatorBase& o, const Expression& op) {
         auto ctor = op.as<expression::Ctor>().ctor();
 
@@ -437,16 +441,16 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         auto name = op0(n);
 
         if ( auto a = AttributeSet::find(f.function().attributes(), "&cxxname") ) {
-            auto s = a->valueAs<std::string>();
+            auto s = a->valueAsString();
             if ( s )
                 name = *s;
             else
                 logger().error(s, n);
         }
 
-        auto values = n.op1().as<expression::Ctor>().ctor().as<ctor::Tuple>().value();
+        const auto& values = n.op1().as<expression::Ctor>().ctor().as<ctor::Tuple>().value();
         return fmt("%s(%s)", name,
-                   util::join(cg->compileCallArguments(values, f.function().type().parameters()), ", "));
+                   util::join(cg->compileCallArguments(values, f.function().ftype().parameters()), ", "));
     }
 
     result_t operator()(const operator_::regexp::Match& n) {
@@ -649,7 +653,7 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
             if ( auto ctor = n.op1().tryAs<expression::Ctor>() ) {
                 auto t = ctor->ctor().as<ctor::Tuple>().value();
                 return fmt("hilti::rt::fmt(%s, %s)", op0(n),
-                           util::join(util::transform(t, [this](auto& x) { return cg->compile(x); }), ", "));
+                           util::join(codegen::transform(t, [this](auto& x) { return cg->compile(x); }), ", "));
             }
         }
 
@@ -702,17 +706,16 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         auto id = n.op1().as<expression::Member>().id();
         auto ft = n.op1().as<expression::Member>().type().as<type::Function>();
         auto args = n.op2().as<expression::Ctor>().ctor().as<ctor::Tuple>().value();
-        auto kinds = util::transform(ft.parameters(), [](auto& x) { return x.kind(); });
-        auto zipped = util::zip2(args, kinds);
+
+        std::vector<std::pair<Expression, bool>> zipped;
+
+        for ( auto i = 0; i < args.size(); i++ )
+            zipped.emplace_back(args[i], ft.parameters()[i].kind() == declaration::parameter::Kind::InOut);
+
         return memberAccess(n,
                             fmt("%s(%s)", id,
                                 util::join(util::transform(zipped,
-                                                           [this](auto& x) {
-                                                               return cg
-                                                                   ->compile(x.first,
-                                                                             x.second ==
-                                                                                 declaration::parameter::Kind::InOut);
-                                                           }),
+                                                           [this](auto& x) { return cg->compile(x.first, x.second); }),
                                            ", ")),
                             false);
     }

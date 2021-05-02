@@ -25,6 +25,8 @@ public:
     /** Implements the `Type` interface. */
     auto isEqual(const Type& other) const { return node::isEqual(this, other); }
     /** Implements the `Type` interface. */
+    auto _isResolved(ResolvedState* rstate) const { return true; }
+    /** Implements the `Type` interface. */
     auto typeParameters() const { return std::vector<Node>{id()}; }
     /** Implements the `Type` interface. */
     auto isWildcard() const { return _wildcard; }

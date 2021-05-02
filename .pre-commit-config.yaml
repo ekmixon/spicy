@@ -9,12 +9,6 @@ repos:
     language: script
     files: '.*\.sh'
 
-  - id: autogen-docs
-    name: Check that generated documentation is up-to-date
-    entry: ./doc/scripts/autogen-docs
-    language: script
-
-    pass_filenames: false
   - id: clang-format
     name: Run clang-format on code
     entry: ./scripts/run-clang-format

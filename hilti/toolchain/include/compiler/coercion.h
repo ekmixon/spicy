@@ -242,7 +242,7 @@ CoercedExpression coerceExpression(const Expression& e, const Type& src_, const 
  * available (missing expressions for optional operands without defaults will
  * remain left out). If unsuccessful, an error.
  */
-Result<std::pair<bool, std::vector<Expression>>> coerceOperands(const std::vector<Expression>& exprs,
+Result<std::pair<bool, std::vector<Expression>>> coerceOperands(const node::range<Expression>& exprs,
                                                                 const std::vector<operator_::Operand>& operands,
                                                                 bitmask<CoercionStyle> style);
 
@@ -271,5 +271,11 @@ Result<Ctor> coerceCtor(Ctor c, const Type& dst, bitmask<CoercionStyle> style = 
 Result<Type> coerceType(const Type& src_, const Type& dst_,
                         bitmask<CoercionStyle> style = CoercionStyle::TryAllForAssignment);
 
+namespace detail {
+/** Implements the corresponding functionality for the default HILTI compiler plugin. */
+std::optional<Ctor> coerceCtor(Ctor c, const Type& dst, bitmask<CoercionStyle> style);
+/** Implements the corresponding functionality for the default HILTI compiler plugin. */
+std::optional<Type> coerceType(Type t, const Type& dst, bitmask<CoercionStyle> style);
+} // namespace detail
 
 } // namespace hilti

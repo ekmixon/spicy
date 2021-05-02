@@ -123,7 +123,7 @@ Type spicy::type::unit::item::Field::vectorElementTypeThroughSelf(ID id) {
 
 std::optional<std::pair<Expression, std::optional<Type>>> spicy::type::unit::item::Field::convertExpression() const {
     if ( auto convert = AttributeSet::find(attributes(), "&convert") )
-        return std::make_pair(*convert->valueAs<Expression>(), std::nullopt);
+        return std::make_pair(*convert->valueAsExpression(), std::nullopt);
 
     auto t = parseType();
 
@@ -132,7 +132,7 @@ std::optional<std::pair<Expression, std::optional<Type>>> spicy::type::unit::ite
 
     if ( auto x = t.tryAs<type::Unit>() ) {
         if ( auto convert = AttributeSet::find(x->attributes(), "&convert") )
-            return std::make_pair(*convert->valueAs<Expression>(), x);
+            return std::make_pair(*convert->valueAsExpression(), x);
     }
 
     // The original unit type may have been replaced with the generated struct
@@ -140,7 +140,7 @@ std::optional<std::pair<Expression, std::optional<Type>>> spicy::type::unit::ite
     if ( auto x = t.tryAs<type::Struct>(); x && x->originalNode() ) {
         if ( auto y = x->originalNode()->tryAs<type::Unit>() ) {
             if ( auto convert = AttributeSet::find(y->attributes(), "&convert") )
-                return std::make_pair(*convert->valueAs<Expression>(), y);
+                return std::make_pair(*convert->valueAsExpression(), y);
         }
     }
 

@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -57,7 +58,7 @@ public:
      *
      * @exception `std::out_of_range` if the attribute does not have an argument
      */
-    const Node& value() const { return childs().at(0); }
+    const Node& value() const { return childs()[0]; }
 
     /**
      * Returns the attributes argument as type `T`. `T` must be either an
@@ -70,44 +71,40 @@ public:
      * @return the argument, or an error if the argument could not be interpreted as type `T`
      * @exception `std::out_of_range` if the attribute does not have an argument
      */
-    template<typename T>
-    Result<T> valueAs() const {
-        if constexpr ( std::is_same<T, Expression>::value ) {
-            if ( ! hasValue() )
-                return result::Error(hilti::util::fmt("attribute '%s' requires an expression", _tag));
+    Result<std::reference_wrapper<const Expression>> valueAsExpression() const {
+        if ( ! hasValue() )
+            return result::Error(hilti::util::fmt("attribute '%s' requires an expression", _tag));
 
-            if ( auto e = value().tryAs<Expression>() )
-                return *e;
-
+        if ( ! value().isA<Expression>() )
             return result::Error(hilti::util::fmt("value for attribute '%s' must be an expression", _tag));
+
+        return {value().as<Expression>()};
+    }
+
+    Result<std::string> valueAsString() const {
+        if ( ! hasValue() )
+            return result::Error(hilti::util::fmt("attribute '%s' requires a string", _tag));
+
+        if ( auto e = value().tryAs<expression::Ctor>() )
+            if ( auto s = e->ctor().tryAs<ctor::String>() )
+                return s->value();
+
+        return result::Error(hilti::util::fmt("value for attribute '%s' must be a string", _tag));
+    }
+
+    Result<int64_t> valueAsInteger() const {
+        if ( ! hasValue() )
+            return result::Error(hilti::util::fmt("attribute '%s' requires an integer", _tag));
+
+        if ( auto e = value().tryAs<expression::Ctor>() ) {
+            if ( auto s = e->ctor().tryAs<ctor::SignedInteger>() )
+                return s->value();
+
+            if ( auto s = e->ctor().tryAs<ctor::UnsignedInteger>() )
+                return static_cast<int64_t>(s->value());
         }
 
-        if constexpr ( std::is_same<T, std::string>::value ) {
-            if ( ! hasValue() )
-                return result::Error(hilti::util::fmt("attribute '%s' requires a string", _tag));
-
-            if ( auto e = value().tryAs<expression::Ctor>() )
-                if ( auto s = e->ctor().tryAs<ctor::String>() )
-                    return s->value();
-            return result::Error(hilti::util::fmt("value for attribute '%s' must be a string", _tag));
-        }
-
-        if constexpr ( std::is_same<T, int64_t>::value ) {
-            if ( ! hasValue() )
-                return result::Error(hilti::util::fmt("attribute '%s' requires an integer", _tag));
-
-            if ( auto e = value().tryAs<expression::Ctor>() ) {
-                if ( auto s = e->ctor().tryAs<ctor::SignedInteger>() )
-                    return s->value();
-
-                if ( auto s = e->ctor().tryAs<ctor::UnsignedInteger>() )
-                    return static_cast<int64_t>(s->value());
-            }
-
-            return result::Error(hilti::util::fmt("value for attribute '%s' must be an integer", _tag));
-        }
-
-        logger().internalError(hilti::util::fmt("unsupported attribute value type requested (%s)", typeid(T).name()));
+        return result::Error(hilti::util::fmt("value for attribute '%s' must be an integer", _tag));
     }
 
     /** Implements the `Node` interface. */
@@ -117,33 +114,22 @@ public:
         if ( _tag != other._tag )
             return false;
 
-        if ( auto x = valueAs<Expression>() ) {
-            auto y = other.valueAs<Expression>();
+        if ( auto x = valueAsExpression() ) {
+            auto y = other.valueAsExpression();
             return y && *x == *y;
         }
 
-        if ( auto x = valueAs<std::string>() ) {
-            auto y = other.valueAs<std::string>();
+        if ( auto x = valueAsString() ) {
+            auto y = other.valueAsString();
+            return y && *x == *y;
+        }
+
+        if ( auto x = valueAsInteger() ) {
+            auto y = other.valueAsInteger();
             return y && *x == *y;
         }
 
         return false;
-    }
-
-    /**
-     * Sets or replaces an attributes's associated argument.
-     *
-     * @param the node to assign as the attribute's argument
-     * @return a new attribute with the value changed
-     */
-    static Attribute setValue(const Attribute& a, Node n) {
-        auto x = Attribute(a);
-        if ( a.childs().empty() )
-            x.childs().emplace_back(std::move(n));
-        else
-            x.childs()[0] = std::move(n);
-
-        return x;
     }
 
 private:
@@ -174,12 +160,7 @@ public:
     AttributeSet(Meta m = Meta()) : NodeBase({}, std::move(m)) {}
 
     /** Returns the set's attributes. */
-    const auto& attributes() const {
-        if ( _cache.attributes.empty() )
-            _cache.attributes = childs<Attribute>(0, -1);
-
-        return _cache.attributes;
-    }
+    auto attributes() const { return childs<Attribute>(0, -1); }
 
     /**
      * Retrieves an attribute with a given name from the set. If multiple
@@ -187,8 +168,8 @@ public:
      *
      * @return attribute if found
      */
-    std::optional<Attribute> find(std::string_view tag) const {
-        for ( auto& a : attributes() )
+    hilti::optional_ref<const Attribute> find(std::string_view tag) const {
+        for ( const auto& a : attributes() )
             if ( a.tag() == tag )
                 return a;
 
@@ -200,8 +181,8 @@ public:
      *
      * @return all attributes with matching name
      */
-    std::vector<Attribute> findAll(std::string_view tag) const {
-        std::vector<Attribute> result;
+    auto findAll(std::string_view tag) const {
+        node::set<Attribute> result;
 
         for ( auto& a : attributes() )
             if ( a.tag() == tag )
@@ -218,14 +199,19 @@ public:
      * (then the result's value is true), or nothing was to be done (then the
      * result's value is false); a failures if a coercionk would have been
      * necessary, but failed.
+     *
+     * TODO: This should mvoe into the type resolver.
      */
     Result<bool> coerceValueTo(const std::string& tag, const Type& dst) {
+        if ( ! type::isResolved(dst) )
+            return false;
+
         for ( auto& n : childs() ) {
             auto a = n.as<Attribute>();
             if ( a.tag() != tag )
                 continue;
 
-            if ( auto e = a.valueAs<Expression>() ) {
+            if ( auto e = a.valueAsExpression() ) {
                 auto ne = coerceExpression(*e, dst);
                 if ( ! ne.coerced )
                     return result::Error("cannot coerce attribute value");
@@ -292,7 +278,8 @@ public:
      * @param attrs set to inspect
      * @return attribute if found
      */
-    static std::optional<Attribute> find(const std::optional<AttributeSet>& attrs, std::string_view tag) {
+    static hilti::optional_ref<const Attribute> find(const hilti::optional_ref<const AttributeSet>& attrs,
+                                                     std::string_view tag) {
         if ( attrs )
             return attrs->find(tag);
         else
@@ -306,7 +293,7 @@ public:
      * @param attrs set to inspect
      * @return all attributes with matching name
      */
-    static std::vector<Attribute> findAll(const std::optional<AttributeSet>& attrs, std::string_view tag) {
+    static node::set<Attribute> findAll(const std::optional<const AttributeSet>& attrs, std::string_view tag) {
         if ( attrs )
             return attrs->findAll(tag);
         else
@@ -326,11 +313,6 @@ public:
         else
             return false;
     }
-
-    void clearCache() { _cache.attributes.clear(); }
-
-private:
-    mutable struct { std::vector<Attribute> attributes; } _cache;
 };
 
 /**

@@ -7,6 +7,8 @@
 #include <hilti/ast/types/id.h>
 #include <hilti/compiler/detail/visitors.h>
 
+#include "base/util.h"
+
 using namespace hilti;
 
 std::string Node::render(bool include_location) const {
@@ -34,16 +36,17 @@ std::string Node::render(bool include_location) const {
     auto location = (include_location && meta().location()) ? util::fmt(" (%s)", meta().location().render(true)) : "";
     auto id = rid() ? util::fmt(" %s", renderedRid()) : "";
     auto orig = originalNode() ? util::fmt(" (original %s)", originalNode()->renderedRid()) : "";
+    auto alias = (this->isAlias() ? " (alias)" : "");
 
     std::string type;
 
     if ( auto x = this->tryAs<expression::ResolvedID>() )
-        type = util::fmt(" (type: %s)", x->type());
+        type = util::fmt(" (type: %s [@t:%p])", x->type(), x->type().identity());
 
     else if ( auto x = this->tryAs<type::ResolvedID>() )
-        type = util::fmt(" (type: %s)", x->type());
+        type = util::fmt(" (type: %s [@t:%p])", x->type(), x->type().identity());
 
-    auto s = util::fmt("%s%s%s%s%s%s", name, id, orig, sprops, type, location);
+    auto s = util::fmt("%s%s%s%s%s%s%s", name, id, orig, sprops, type, alias, location);
 
     if ( auto t = this->tryAs<Type>() ) {
         std::vector<std::string> flags;
@@ -66,15 +69,35 @@ std::string Node::render(bool include_location) const {
 
         if ( t->isWildcard() )
             s += " (wildcard)";
+
+        s += (type::isResolved(t) ? " (resolved)" : " (not resolved)");
     }
 
-    else if ( auto e = this->tryAs<Expression>() )
+    else if ( auto e = this->tryAs<Expression>() ) {
         s += (e->isConstant() ? " (const)" : " (non-const)");
+        s += (type::isResolved(e->type()) ? " (resolved)" : " (not resolved)");
+    }
+
+    else if ( auto d = this->tryAs<Declaration>() ) {
+        s += util::fmt(" [canon-id: %s]", d->canonicalID() ? d->canonicalID().str() : "not set");
+
+        if ( auto t = this->tryAs<declaration::Type>() )
+            s += (type::isResolved(t->type()) ? " (resolved)" : " (not resolved)");
+    }
+
+    s += util::fmt(" [@%s:%p]", util::tolower(name.substr(0, 1)), identity());
 
     // Format errors last on the line since they are not properly delimited.
     if ( hasErrors() )
-        for ( auto&& e : errors() )
-            s += util::fmt("  [ERROR] %s%s", e.message, (e.priority == node::ErrorPriority::Low ? " (low prio)" : ""));
+        for ( auto&& e : errors() ) {
+            auto prio = "";
+            if ( e.priority == node::ErrorPriority::Low )
+                prio = " (low prio)";
+            else if ( e.priority == node::ErrorPriority::High )
+                prio = " (high prio)";
+
+            s += util::fmt("  [ERROR] %s%s", e.message, prio);
+        }
 
     return s;
 }

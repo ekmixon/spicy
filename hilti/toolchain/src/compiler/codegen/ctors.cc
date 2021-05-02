@@ -30,7 +30,8 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
     result_t operator()(const ctor::Coerced& n) { return cg->compile(n.coercedCtor()); }
 
     result_t operator()(const ctor::Default& n) {
-        auto args = util::join(util::transform(n.typeArguments(), [&](const auto e) { return cg->compile(e); }), ", ");
+        auto args =
+            util::join(codegen::transform(n.typeArguments(), [&](const auto e) { return cg->compile(e); }), ", ");
         return fmt("(%s(%s))", cg->compile(n.type(), codegen::TypeUsage::Ctor), args);
     }
 
@@ -59,22 +60,23 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
             return "hilti::rt::vector::Empty()";
 
         return fmt("hilti::rt::Vector<%s>({%s})", cg->compile(n.elementType(), codegen::TypeUsage::Storage),
-                   util::join(util::transform(n.value(), [this](auto e) { return cg->compile(e); }), ", "));
+                   util::join(codegen::transform(n.value(), [this](auto e) { return cg->compile(e); }), ", "));
     }
 
     result_t operator()(const ctor::Map& n) {
-        if ( n.elementType() == type::unknown )
+        if ( n.valueType() == type::unknown )
             // Can only be the empty map.
             return "hilti::rt::map::Empty()";
 
         auto k = cg->compile(n.keyType(), codegen::TypeUsage::Storage);
-        auto v = cg->compile(n.elementType(), codegen::TypeUsage::Storage);
+        auto v = cg->compile(n.valueType(), codegen::TypeUsage::Storage);
 
         return fmt("hilti::rt::Map<%s, %s>({%s})", k, v,
-                   util::join(util::transform(n.value(),
-                                              [this](auto e) {
-                                                  return fmt("{%s, %s}", cg->compile(e.first), cg->compile(e.second));
-                                              }),
+                   util::join(codegen::transform(n.value(),
+                                                 [this](const auto& e) {
+                                                     return fmt("{%s, %s}", cg->compile(e.key()),
+                                                                cg->compile(e.value()));
+                                                 }),
                               ", "));
     }
 
@@ -125,7 +127,9 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         auto t = (n.value().size() == 1 ? "std::string" : "std::vector<std::string>");
         return fmt("hilti::rt::RegExp(%s{%s}, {%s})", t,
                    util::join(util::transform(n.value(),
-                                              [&](auto s) { return fmt("\"%s\"", util::escapeUTF8(s, true, false)); }),
+                                              [&](const auto& s) {
+                                                  return fmt("\"%s\"", util::escapeUTF8(s, true, false));
+                                              }),
                               ", "),
                    util::join(flags, ", "));
     }
@@ -138,7 +142,8 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         const auto k = cg->compile(n.elementType(), codegen::TypeUsage::Storage);
 
         return fmt("hilti::rt::Set<%s>({%s})", k,
-                   util::join(util::transform(n.value(), [this](auto e) { return fmt("%s", cg->compile(e)); }), ", "));
+                   util::join(codegen::transform(n.value(), [this](auto e) { return fmt("%s", cg->compile(e)); }),
+                              ", "));
     }
 
     result_t operator()(const ctor::SignedInteger& n) {
@@ -156,7 +161,7 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
 
     result_t operator()(const ctor::Tuple& n) {
         return fmt("std::make_tuple(%s)",
-                   util::join(util::transform(n.value(), [this](auto e) { return cg->compile(e); }), ", "));
+                   util::join(codegen::transform(n.value(), [this](auto e) { return cg->compile(e); }), ", "));
     }
 
     result_t operator()(const ctor::Struct& n) {
@@ -165,15 +170,15 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         auto is_field = [&](auto f) { return ! f.type().template isA<type::Function>(); };
 
         auto convert_field = [&](auto f) {
-            if ( const auto& c = n.field(f.id()) )
-                return cg->compile(c->second);
+            if ( auto c = n.field(f.id()) )
+                return cg->compile(c->expression());
 
             return cxx::Expression("{}");
         };
 
         return fmt("%s(%s)", id,
-                   util::join(util::transform(util::filter(n.type().as<type::Struct>().fields(), is_field),
-                                              convert_field),
+                   util::join(codegen::transform(codegen::filter(n.type().as<type::Struct>().fields(), is_field),
+                                                 convert_field),
                               ", "));
     }
 
@@ -203,7 +208,8 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
             allocator = fmt(", hilti::rt::vector::Allocator<%s, %s>", x, *def);
 
         return fmt("hilti::rt::Vector<%s%s>({%s})", x, allocator,
-                   util::join(util::transform(n.value(), [this](auto e) { return fmt("%s", cg->compile(e)); }), ", "));
+                   util::join(codegen::transform(n.value(), [this](auto e) { return fmt("%s", cg->compile(e)); }),
+                              ", "));
     }
 
     result_t operator()(const ctor::UnsignedInteger& n) {

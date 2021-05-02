@@ -90,7 +90,7 @@ hilti::Result<hilti::Nothing> isParseableType(Type pt, const type::unit::item::F
         auto type = AttributeSet::find(f.attributes(), "&type");
 
         if ( type ) {
-            if ( auto t = type->valueAs<Expression>()->type().tryAs<type::Enum>();
+            if ( auto t = type->valueAsExpression()->type().tryAs<type::Enum>();
                  ! (t && t->cxxID() && *t->cxxID() == ID("hilti::rt::real::Type")) )
                 return hilti::result::Error("&type attribute must be a spicy::RealType");
         }
@@ -376,7 +376,7 @@ struct PreTransformVisitor : public hilti::visitor::PreOrder<void, PreTransformV
                 if ( ! a.hasValue() )
                     error("&default requires an argument", p);
                 else {
-                    if ( auto x = a.valueAs<Expression>(); ! x ) {
+                    if ( auto x = a.valueAsExpression(); ! x ) {
                         error(x.error(), p);
                     }
 
@@ -439,7 +439,7 @@ struct PreTransformVisitor : public hilti::visitor::PreOrder<void, PreTransformV
             if ( auto f = getAttrField(p) ) {
                 if ( ! a.hasValue() )
                     error("&parse-from must provide an expression", p);
-                else if ( auto e = a.valueAs<Expression>();
+                else if ( auto e = a.valueAsExpression();
                           e && e->type() != type::unknown && e->type() != type::Bytes() )
                     error("&parse-from must have an expression of type either bytes or iterator<stream>", p);
             }
@@ -449,7 +449,7 @@ struct PreTransformVisitor : public hilti::visitor::PreOrder<void, PreTransformV
             if ( auto f = getAttrField(p) ) {
                 if ( ! a.hasValue() )
                     error("&parse-at must provide an expression", p);
-                else if ( auto e = a.valueAs<Expression>();
+                else if ( auto e = a.valueAsExpression();
                           e && e->type() != type::unknown && e->type() != type::stream::Iterator() )
                     error("&parse-at must have an expression of type iterator<stream>", p);
             }
@@ -458,7 +458,7 @@ struct PreTransformVisitor : public hilti::visitor::PreOrder<void, PreTransformV
         else if ( a.tag() == "&requires" ) {
             if ( ! a.hasValue() )
                 error("&requires must provide an expression", p);
-            else if ( auto e = a.valueAs<Expression>(); e && e->type() != type::unknown && e->type() != type::Bool() )
+            else if ( auto e = a.valueAsExpression(); e && e->type() != type::unknown && e->type() != type::Bool() )
                 error(fmt("&requires expression must be of type bool, but is of type %d ", e->type()), p);
         }
     }
@@ -480,7 +480,7 @@ struct PreTransformVisitor : public hilti::visitor::PreOrder<void, PreTransformV
                 }
 
                 else if ( a.tag() == "&requires" ) {
-                    auto e = a.valueAs<Expression>();
+                    auto e = a.valueAsExpression();
                     if ( ! e )
                         error(e.error(), p);
                     else {
@@ -489,7 +489,7 @@ struct PreTransformVisitor : public hilti::visitor::PreOrder<void, PreTransformV
                     }
                 }
                 else if ( a.tag() == "&byte-order" ) {
-                    auto e = a.valueAs<Expression>();
+                    auto e = a.valueAsExpression();
                     if ( ! e )
                         error(e.error(), p);
                 }

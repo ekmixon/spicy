@@ -119,7 +119,7 @@ struct ModuleIndex {
  */
 struct CachedModule {
     ModuleIndex index; /**< ID and path of module */
-    NodeRef node;      /**< module's root AST node */
+    Node* node;        /**< module's root AST node */
     bool requires_compilation =
         false; /**< true if the module contains code that requires compilation itself (vs. modules that only declare
                   elements, but don't generate produce any code for linking) */
@@ -128,7 +128,7 @@ struct CachedModule {
     bool final = false; /**< once true, one can start relying on the other fields outside of AST processing */
 
     CachedModule() = default;
-    CachedModule(ModuleIndex index, NodeRef node) : index(std::move(index)), node(std::move(node)) {}
+    CachedModule(ModuleIndex index, Node* node) : index(std::move(index)), node(node) {}
 };
 
 } // namespace context

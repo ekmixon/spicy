@@ -21,6 +21,8 @@ t2.x = new X;
 t2.x.s = "foo";
 t2.y = 42;
 
+hilti::print(t2);
+
 assert t2.x.s == "foo";
 assert t2.y == 42;
 }

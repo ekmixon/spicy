@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -29,12 +30,8 @@ public:
 
     const auto& id() const { return child<ID>(0); }
     const auto& statements() const { return child<statement::Block>(1); }
-    const auto& declarations() const {
-        if ( _cache.declarations.empty() )
-            _cache.declarations = childs<Declaration>(2, -1);
-
-        return _cache.declarations;
-    }
+    auto declarations() const { return childs<Declaration>(2, -1); }
+    auto declarationNodes() const { return childs<Node>(2, -1); }
 
     const auto& preserved() const { return _preserved; }
     auto& preserved() { return _preserved; }
@@ -57,7 +54,7 @@ public:
      *
      * @param id name of the property to return
      */
-    Result<declaration::Property> moduleProperty(const ID& id) const;
+    hilti::optional_ref<const declaration::Property> moduleProperty(const ID& id) const;
 
     /**
      * Returns all of module's property declarations of a given name. If
@@ -65,7 +62,7 @@ public:
      *
      * @param id name of the property to return
      */
-    std::vector<declaration::Property> moduleProperties(const ID& id) const;
+    node::set<declaration::Property> moduleProperties(const ID& id) const;
 
     /**
      * Adds a declaration to the module. It will be appended to the current
@@ -115,12 +112,8 @@ public:
     /** Implements the `Node` interface. */
     auto properties() const { return node::Properties{}; }
 
-    void clearCache() { _cache.declarations.clear(); }
-
 private:
     std::vector<Node> _preserved;
-
-    mutable struct { std::vector<Declaration> declarations; } _cache;
 };
 
 /** Creates an AST node representing a `Module`. */

@@ -9,7 +9,7 @@ using namespace spicy;
 
 Type type::bitfield::Bits::type() const {
     if ( auto a = AttributeSet::find(attributes(), "&convert") )
-        return hilti::type::Computed(*a->valueAs<Expression>(), meta());
+        return hilti::type::Computed(*a->valueAsExpression(), meta());
 
     return hilti::type::UnsignedInteger(_field_width);
 }

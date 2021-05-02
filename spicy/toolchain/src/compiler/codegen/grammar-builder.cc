@@ -84,7 +84,7 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
             return production::Counter(id, *repeat, sub, loc);
 
         if ( count )
-            return production::Counter(id, *count->valueAs<Expression>(), sub, loc);
+            return production::Counter(id, *count->valueAsExpression(), sub, loc);
 
         if ( size )
             // When parsing, our view will be limited to the specified input

@@ -17,8 +17,8 @@ namespace operator_ {
 namespace detail {
 
 static inline auto constantKeyType(unsigned int op, const char* doc = "<type of key>") {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 

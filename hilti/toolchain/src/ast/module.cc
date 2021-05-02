@@ -20,22 +20,26 @@ void Module::clear() {
 }
 
 NodeRef Module::preserve(Node n) {
-    detail::clearErrors(&n);
+    detail::ast::clearErrors(&n);
     _preserved.push_back(std::move(n));
     return NodeRef(_preserved.back());
 }
 
-Result<declaration::Property> Module::moduleProperty(const ID& id) const {
+hilti::optional_ref<const declaration::Property> Module::moduleProperty(const ID& id) const {
     for ( const auto& d : declarations() ) {
-        if ( auto p = d.tryAs<declaration::Property>(); p && p->id() == id )
-            return *p;
+        if ( ! d.isA<declaration::Property>() )
+            return {};
+
+        auto& x = d.as<declaration::Property>();
+        if ( x.id() == id )
+            return {x};
     }
 
-    return result::Error("no property of specified id");
+    return {};
 }
 
-std::vector<declaration::Property> Module::moduleProperties(const ID& id) const {
-    std::vector<declaration::Property> props;
+node::set<declaration::Property> Module::moduleProperties(const ID& id) const {
+    node::set<declaration::Property> props;
 
     for ( const auto& d : declarations() ) {
         if ( auto p = d.tryAs<declaration::Property>(); p && p->id() == id )

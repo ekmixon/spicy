@@ -8,10 +8,6 @@
 
 using namespace hilti;
 
-namespace hilti::logging::debug {
-inline const DebugStream Resolver("resolver");
-} // namespace hilti::logging::debug
-
 std::pair<bool, Result<std::pair<NodeRef, ID>>> hilti::scope::detail::lookupID(const ID& id, const Node& n) {
     auto resolved = n.scope()->lookupAll(id);
 
@@ -53,9 +49,6 @@ std::pair<bool, Result<std::pair<NodeRef, ID>>> hilti::scope::detail::lookupID(c
                     return std::make_pair(true, std::move(err));
                 }
             }
-
-            HILTI_DEBUG(logging::debug::Resolver, util::fmt("resolved ID %s (%s) to %s", id, id.meta().location(),
-                                                            resolved.front().node->render()));
 
             auto x = std::make_pair(resolved.front().node, ID(resolved.front().qualified));
             return std::make_pair(true, std::move(x));

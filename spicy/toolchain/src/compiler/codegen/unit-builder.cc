@@ -227,7 +227,7 @@ Type CodeGen::compileUnit(const type::Unit& unit, bool declare_only) {
     v.addField(type::struct_::Field(type::struct_::Field("__parse_stage1", std::move(ft))));
 
     if ( auto convert = AttributeSet::find(unit.attributes(), "&convert") ) {
-        auto expression = *convert->valueAs<Expression>();
+        auto expression = *convert->valueAsExpression();
         auto result = type::Auto();
         auto params = std::vector<type::function::Parameter>();
         auto ftype = type::Function(type::function::Result(std::move(result), expression.meta()), std::move(params),

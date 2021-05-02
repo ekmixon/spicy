@@ -129,38 +129,11 @@ struct Plugin {
      * @param arg3 current unit being compiled
      * @return true if the hook modified the AST in a substantial way
      */
-    Hook<void, std::shared_ptr<hilti::Context>, const std::vector<std::pair<ID, NodeRef>>&, Unit*> build_scopes;
 
-    /**
-     * Hook called to resolved IDs in a module's AST.
-     *
-     * @param arg1 compiler context that's in use
-     * @param arg2 root node of AST; the hook may modify the AST
-     * @param arg3 current unit being compiled
-     * @return true if the hook modified the AST in a substantial way
-     */
-    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> resolve_ids;
-
-    /**
-     * Hook called to resolved operators in a module's AST.
-     *
-     * @param arg1 compiler context that's in use
-     * @param arg2 root node of AST; the hook may modify the AST
-     * @param arg3 current unit being compiled
-     * @return true if the hook modified the AST in a substantial way
-     */
-    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> resolve_operators;
-
-    /**
-     * Hook called perform coercions. This must carry out all the coercions
-     * that `coerce_type` has indicated as valid.
-     *
-     * @param arg1 compiler context that's in use
-     * @param arg2 root node of AST; the hook may modify the AST
-     * @param arg3 current unit being compiled
-     * @return true if the hook modified the AST in a substantial way
-     */
-    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> apply_coercions;
+    Hook<void, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_build_scopes;
+    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_normalize;
+    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_coerce;
+    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_resolve;
 
     /**
      * Hook called to validate correctness of an AST once fully resolved. Any
@@ -169,9 +142,8 @@ struct Plugin {
      * @param arg1 compiler context that's in use
      * @param arg2 root node of AST; the hook may not modify the AST
      * @param arg3 current unit being compiled
-     * @return true if the AST validated correctly
      */
-    Hook<void, std::shared_ptr<hilti::Context>, Node*, Unit*> validate;
+    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_validate;
 
     /**
      * Hook called to replace any custom AST nodes with standard HILTI

@@ -294,9 +294,11 @@ inline Expression typeinfo(Type t, Meta m = Meta()) {
 
 inline Expression typeinfo(Expression e, Meta m = Meta()) { return expression::TypeInfo(std::move(e), std::move(m)); }
 
-inline Expression self(NodeRef d, Meta m = Meta()) {
-    return expression::Keyword(hilti::expression::keyword::Kind::Self, std::move(d), std::move(m));
-}
+/*
+ * inline Expression self(NodeRef d, Meta m = Meta()) {
+ *     return expression::Keyword(hilti::expression::keyword::Kind::Self, std::move(d), std::move(m));
+ * }
+ */
 
 inline Expression dollardollar(Meta m = Meta()) {
     return expression::Keyword(hilti::expression::keyword::Kind::DollarDollar, std::move(m));
@@ -325,21 +327,25 @@ inline Expression max(const Expression& e1, const Expression& e2, const Meta& m 
 }
 
 inline Expression type_wrapped(Expression e, const Meta& m = Meta()) {
-    return expression::TypeWrapped(std::move(e), m);
+    assert("TODO: remove" && false);
+    return null();
 }
 
 inline Expression type_wrapped(Expression e, Type t, const Meta& m = Meta()) {
+    // TODO: I believe we can/should keep this one.
     return expression::TypeWrapped(std::move(e), std::move(t), m);
 }
 
 inline Expression expect_type(Expression e, Type expected, const Meta& m = Meta()) {
-    return expression::TypeWrapped(e, std::move(expected), expression::TypeWrapped::ValidateTypeMatch(),
-                                   m ? std::move(m) : e.meta());
+    assert("TODO: remove" && false);
+    return null();
 }
 
+// TODO: Remove
 // Forces interpreting a given expression as a value of a __library_type.
 inline Expression library_type_value(Expression e, ID library_type, const Meta& m = Meta()) {
-    return expression::TypeWrapped(e, hilti::type::UnresolvedID(std::move(library_type), m), m);
+    assert("TODO: remove" && false);
+    return null();
 }
 
 inline auto port(Expression port, Expression protocol, const Meta& m = Meta()) {

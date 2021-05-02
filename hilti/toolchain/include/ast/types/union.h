@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <functional>
 #include <utility>
 #include <vector>
 
@@ -25,27 +26,15 @@ public:
         : NodeBase(nodes(std::move(id), std::move(t), std::move(attrs)), std::move(m)) {}
 
     const auto& id() const { return child<ID>(0); }
-    auto type() const { return type::effectiveType(child<Type>(1)); }
+    const auto& type() const { return child<Type>(1); }
     auto attributes() const { return childs()[2].tryReferenceAs<AttributeSet>(); }
+    bool isResolved(type::ResolvedState* rstate) const { return type::isResolved(child<Type>(1), rstate); }
 
     /** Implements the `Node` interface. */
     auto properties() const { return node::Properties{}; }
 
     bool operator==(const Field& other) const {
         return id() == other.id() && type() == other.type() && attributes() == other.attributes();
-    }
-
-    /**
-     * Copies an existing field but replaces its attributes.
-     *
-     * @param f original field
-     * @param attrs new attributes
-     * @return new field with attributes replaced
-     */
-    static Field setAttributes(const Field& f, const AttributeSet& attrs) {
-        auto x = Field(f);
-        x.childs()[2] = attrs;
-        return x;
     }
 };
 
@@ -62,24 +51,8 @@ public:
 
     auto fields() const { return childsOfType<union_::Field>(); }
 
-    auto types() const {
-        std::vector<Type> types;
-        for ( auto c = ++childs().begin(); c != childs().end(); c++ )
-            types.push_back(c->as<union_::Field>().type());
-
-        return types;
-    }
-
-    auto ids() const {
-        std::vector<ID> ids;
-        for ( auto c = ++childs().begin(); c != childs().end(); c++ )
-            ids.push_back(c->as<union_::Field>().id());
-
-        return ids;
-    }
-
-    std::optional<union_::Field> field(const ID& id) const {
-        for ( auto f : fields() ) {
+    hilti::optional_ref<const union_::Field> field(const ID& id) const {
+        for ( const auto& f : fields() ) {
             if ( f.id() == id )
                 return f;
         }
@@ -96,26 +69,21 @@ public:
         return 0;
     }
 
-    auto fields(const ID& id) const {
-        std::vector<union_::Field> x;
-
-        for ( const auto& f : fields() ) {
-            if ( f.id() == id )
-                x.push_back(f);
-        }
-
-        return x;
-    }
-
-    bool operator==(const Union& other) const {
-        if ( typeID() && other.typeID() )
-            return *typeID() == *other.typeID();
-
-        return fields() == other.fields();
-    }
+    bool operator==(const Union& other) const { return fields() == other.fields(); }
 
     /** Implements the `Type` interface. */
     auto isEqual(const Type& other) const { return node::isEqual(this, other); }
+
+    /** Implements the `Type` interface. */
+    auto _isResolved(ResolvedState* rstate) const {
+        for ( auto c = ++childs().begin(); c != childs().end(); c++ ) {
+            if ( ! c->as<union_::Field>().isResolved(rstate) )
+                return false;
+        }
+
+        return true;
+    }
+
     /** Implements the `Type` interface. */
     auto typeParameters() const {
         std::vector<Node> params;

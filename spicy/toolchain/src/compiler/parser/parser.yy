@@ -492,7 +492,7 @@ stmt          : stmt_expr ';'                    { $$ = std::move($1); }
               | SWITCH '(' expr ')' '{' switch_cases '}'
                                                  { $$ = hilti::statement::Switch(std::move($3), std::move($6), __loc__); }
               | SWITCH '(' local_init_decl ')' '{' switch_cases '}'
-                                                 { $$ = hilti::statement::Switch($3, hilti::expression::UnresolvedID($3.as<hilti::declaration::LocalVariable>().id()), std::move($6), __loc__); }
+                                                 { $$ = hilti::statement::Switch(std::move($3), std::move($6), __loc__); }
               | WHILE '(' local_init_decl ';' expr ')' block
                                                  { $$ = hilti::statement::While(std::move($3), std::move($5), std::move($7), std::nullopt, __loc__); }
               | WHILE '(' expr ')' block

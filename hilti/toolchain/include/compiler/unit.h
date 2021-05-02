@@ -289,7 +289,7 @@ private:
         : _context(std::move(context)), _id(std::move(id)), _path(std::move(path)), _have_hilti_ast(have_hilti_ast) {}
 
     // Returns a list of all currently known/imported modules.
-    std::vector<std::pair<ID, NodeRef>> _currentModules() const;
+    std::vector<std::pair<ID, Node*>> _currentModules() const;
 
     // Looks up a module by its ID. The module must have been imported into
     // the unit to succeed. Assuming so, it returns the context's cache entry
@@ -299,16 +299,20 @@ private:
     // Backend for the public import() methods.
     Result<context::ModuleIndex> _import(const hilti::rt::filesystem::path& path, std::optional<ID> expected_name);
 
-    // Runs a validation pass on a set of modules and reports any errors.
-    bool _validateASTs(std::vector<std::pair<ID, NodeRef>>& modules,
-                       const std::function<bool(const ID&, NodeRef&)>& run_hooks_callback);
-
-    // Runs a validation pass on a module and reports any errors.
-    bool _validateAST(const ID& id, NodeRef module, const std::function<bool(const ID&, NodeRef&)>& run_hooks_callback);
-
-    // Runs a validation pass on a set of nodes and reports any errors.
-    bool _validateASTs(const ID& id, std::vector<Node>& nodes,
-                       const std::function<bool(const ID&, std::vector<Node>&)>& run_hooks_callback);
+    bool _collectErrors(std::vector<std::pair<ID, Node*>>& modules);
+    /*
+     * // Runs a validation pass on a set of modules and reports any errors.
+     * bool _validateASTs(std::vector<std::pair<ID, NodeRef>>& modules,
+     *                    const std::function<bool(const ID&, NodeRef&)>& run_hooks_callback);
+     *
+     * // Runs a validation pass on a module and reports any errors.
+     * bool _validateAST(const ID& id, NodeRef module, const std::function<bool(const ID&, NodeRef&)>&
+     * run_hooks_callback);
+     *
+     * // Runs a validation pass on a set of nodes and reports any errors.
+     * bool _validateASTs(const ID& id, std::vector<Node>& nodes,
+     *                    const std::function<bool(const ID&, std::vector<Node>&)>& run_hooks_callback);
+     */
     // Updates the requires_compilation flags for all of a module's imports.
     void _determineCompilationRequirements(const Node& module);
     // Sends a debug dump of a module's AST to the global logger.

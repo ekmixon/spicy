@@ -49,19 +49,40 @@ using const_position_t = visitor::Position<const Node&>;
 
 using OperandType =
     std::variant<Type,
-                 std::function<std::optional<Type>(const std::vector<Expression>&, const std::vector<Expression>&)>>;
-inline std::optional<Type> type(const OperandType& t, const std::vector<Expression>& orig_ops,
-                                const std::vector<Expression>& resolved_ops) {
+                 std::function<std::optional<Type>(const node::range<Expression>&, const node::range<Expression>&)>>;
+
+inline std::optional<Type> type(const OperandType& t, const node::range<Expression>& orig_ops,
+                                const node::range<Expression>& resolved_ops) {
     if ( const auto& f = std::get_if<
-             std::function<std::optional<Type>(const std::vector<Expression>&, const std::vector<Expression>&)>>(&t) )
+             std::function<std::optional<Type>(const node::range<Expression>&, const node::range<Expression>&)>>(&t) )
         return (*f)(orig_ops, resolved_ops);
 
     return std::get<Type>(t);
 }
 
+inline std::optional<Type> type(const OperandType& t, const node::range<Expression>& orig_ops,
+                                const std::vector<Expression>& resolved_ops) {
+    // TODO: Can we do this differently?
+    std::vector<Node> resolved_as_nodes;
+    for ( const auto& e : resolved_ops )
+        resolved_as_nodes.emplace_back(e);
+
+    return type(t, orig_ops, node::range<Expression>(resolved_as_nodes.begin(), resolved_as_nodes.end()));
+}
+
+inline std::optional<Type> type(const OperandType& t, const std::vector<Expression>& orig_ops,
+                                const std::vector<Expression>& resolved_ops) {
+    // TODO: Can we do this differently?
+    std::vector<Node> orig_as_nodes;
+    for ( const auto& e : orig_ops )
+        orig_as_nodes.emplace_back(e);
+
+    return type(t, node::range<Expression>(orig_as_nodes.begin(), orig_as_nodes.end()), resolved_ops);
+}
+
 inline auto operandType(unsigned int op, const char* doc = "<no-doc>") {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 
@@ -74,8 +95,8 @@ inline auto operandType(unsigned int op, const char* doc = "<no-doc>") {
 }
 
 inline auto elementType(unsigned int op, const char* doc = "<type of element>", bool infer_const = true) {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 
@@ -93,8 +114,8 @@ inline auto elementType(unsigned int op, const char* doc = "<type of element>", 
 }
 
 inline auto constantElementType(unsigned int op, const char* doc = "<type of element>") {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 
@@ -110,8 +131,8 @@ inline auto constantElementType(unsigned int op, const char* doc = "<type of ele
 }
 
 inline auto iteratorType(unsigned int op, bool const_, const char* doc = "<iterator>") {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 
@@ -127,8 +148,8 @@ inline auto iteratorType(unsigned int op, bool const_, const char* doc = "<itera
 }
 
 inline auto dereferencedType(unsigned int op, const char* doc = "<dereferenced type>", bool infer_const = true) {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 
@@ -139,7 +160,11 @@ inline auto dereferencedType(unsigned int op, const char* doc = "<dereferenced t
 
         if ( type::isDereferencable(resolved_ops[op].type()) ) {
             auto t = resolved_ops[op].type().dereferencedType();
-            return (infer_const && resolved_ops[op].isConstant()) ? type::constant(t) : std::move(t);
+
+            if ( ! infer_const )
+                return std::move(t);
+
+            return resolved_ops[op].isConstant() ? type::constant(t) : type::nonConstant(t);
         }
 
         return {};
@@ -147,8 +172,8 @@ inline auto dereferencedType(unsigned int op, const char* doc = "<dereferenced t
 }
 
 inline auto sameTypeAs(unsigned int op, const char* doc = "<no-doc>") {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 
@@ -161,8 +186,8 @@ inline auto sameTypeAs(unsigned int op, const char* doc = "<no-doc>") {
 }
 
 inline auto typedType(unsigned int op, const char* doc = "<type>") {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const node::range<Expression>& /* orig_ops */,
+               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly(doc);
 

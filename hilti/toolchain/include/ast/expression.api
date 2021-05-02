@@ -3,7 +3,7 @@
 /** Interface for HILTI expressions. */
 class Expression(hilti::trait::isExpression) : hilti::trait::isNode {
     /** Returns the expressions's HILTI type when evaluated. */
-    hilti::Type type() const;
+    const hilti::Type& type() const;
 
     /**
      * Returns true if the constructor's value is a value that will never

@@ -566,7 +566,7 @@ struct ProductionVisitor
             pstate.trim = builder::bool_(false);
             pstate.lahead = builder()->addTmp("parse_lah", look_ahead::Type, look_ahead::None);
             pstate.lahead_end = builder()->addTmp("parse_lahe", type::stream::Iterator());
-            auto expr = a->valueAs<Expression>();
+            auto expr = a->valueAsExpression();
 
             auto tmp = builder()->addTmp("parse_from", type::ValueReference(type::Stream()), *expr);
             pstate.data = tmp;
@@ -583,7 +583,7 @@ struct ProductionVisitor
             pstate.trim = builder::bool_(false);
             pstate.lahead = builder()->addTmp("parse_lah", look_ahead::Type, look_ahead::None);
             pstate.lahead_end = builder()->addTmp("parse_lahe", type::stream::Iterator());
-            auto expr = a->valueAs<Expression>();
+            auto expr = a->valueAsExpression();
 
             auto cur = builder::memberCall(state().cur, "advance", {*expr});
             pstate.cur = builder()->addTmp("parse_cur", cur);
@@ -598,12 +598,12 @@ struct ProductionVisitor
         assert(! (AttributeSet::find(field->attributes(), "&size") &&
                   AttributeSet::find(field->attributes(), "&max-size")));
         if ( auto a = AttributeSet::find(field->attributes(), "&size") )
-            length = builder::coerceTo(*a->valueAs<Expression>(), type::UnsignedInteger(64));
+            length = builder::coerceTo(*a->valueAsExpression(), type::UnsignedInteger(64));
         if ( auto a = AttributeSet::find(field->attributes(), "&max-size") )
             // Append a sentinel byte for `&max-size` so we can detect reads beyond the expected length.
             length =
                 builder()->addTmp("max_size",
-                                  builder::sum(builder::coerceTo(*a->valueAs<Expression>(), type::UnsignedInteger(64)),
+                                  builder::sum(builder::coerceTo(*a->valueAsExpression(), type::UnsignedInteger(64)),
                                                builder::integer(1)));
 
         if ( length ) {
@@ -984,7 +984,7 @@ struct ProductionVisitor
         std::optional<Expression> ncur;
         if ( auto a = AttributeSet::find(p.attributes(), "&size") ) {
             // Limit input to the specified length.
-            auto length = builder::coerceTo(*a->valueAs<Expression>(), type::UnsignedInteger(64));
+            auto length = builder::coerceTo(*a->valueAsExpression(), type::UnsignedInteger(64));
             auto limited = builder()->addTmp("limited", builder::memberCall(state().cur, "limit", {length}));
 
             // Establish limited view, remembering position to continue at.
@@ -1047,12 +1047,12 @@ struct ProductionVisitor
         assert(! (AttributeSet::find(p.unitType().attributes(), "&size") &&
                   AttributeSet::find(p.unitType().attributes(), "&max-size")));
         if ( auto a = AttributeSet::find(p.unitType().attributes(), "&size") )
-            length = builder::coerceTo(*a->valueAs<Expression>(), type::UnsignedInteger(64));
+            length = builder::coerceTo(*a->valueAsExpression(), type::UnsignedInteger(64));
         else if ( auto a = AttributeSet::find(p.unitType().attributes(), "&max-size") )
             // Append a sentinel byte for `&max-size` so we can detect reads beyond the expected length.
             length =
                 builder()->addTmp("max_size",
-                                  builder::sum(builder::coerceTo(*a->valueAs<Expression>(), type::UnsignedInteger(64)),
+                                  builder::sum(builder::coerceTo(*a->valueAsExpression(), type::UnsignedInteger(64)),
                                                builder::integer(1)));
 
         if ( length ) {
@@ -1508,7 +1508,7 @@ void ParserBuilder::newValueForField(const production::Meta& meta, const Express
         // "self.<x>".
         auto block = builder()->addBlock();
         block->addLocal(ID("__dd"), field->parseType(), dd);
-        auto cond = block->addTmp("requires", *a.valueAs<Expression>());
+        auto cond = block->addTmp("requires", *a.valueAsExpression());
         pushBuilder(block->addIf(builder::not_(cond)), [&]() { parseError("&requires failed", a.value().location()); });
     }
 
@@ -1657,7 +1657,7 @@ void ParserBuilder::finalizeUnit(bool success, const Location& l) {
         // so that (1) that one can rely on the condition, and (2) we keep
         // running either "%done" or "%error".
         for ( auto attr : AttributeSet::findAll(unit.attributes(), "&requires") ) {
-            auto cond = *attr.valueAs<Expression>();
+            auto cond = *attr.valueAsExpression();
             pushBuilder(builder()->addIf(builder::not_(cond)), [&]() { parseError("&requires failed", cond.meta()); });
         }
     }

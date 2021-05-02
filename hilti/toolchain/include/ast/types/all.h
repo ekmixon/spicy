@@ -7,7 +7,6 @@
 #include <hilti/ast/types/auto.h>
 #include <hilti/ast/types/bool.h>
 #include <hilti/ast/types/bytes.h>
-#include <hilti/ast/types/computed.h>
 #include <hilti/ast/types/doc-only.h>
 #include <hilti/ast/types/enum.h>
 #include <hilti/ast/types/error.h>

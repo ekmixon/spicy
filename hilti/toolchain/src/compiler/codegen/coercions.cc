@@ -27,9 +27,10 @@ struct Visitor : public hilti::visitor::PreOrder<std::string, Visitor> {
         logger().internalError(fmt("codegen: unexpected type coercion from bytes to %s", dst.typename_()));
     }
 
-    result_t operator()(const type::Enum& src) {
+    result_t operator()(const type::Enum& src, position_t p) {
         if ( auto t = dst.tryAs<type::Bool>() ) {
-            auto id = cg->compile(src, codegen::TypeUsage::Storage);
+            auto etype = p.node.as<Type>(); // preserve type ID
+            auto id = cg->compile(std::move(etype), codegen::TypeUsage::Storage);
             return fmt("(%s != %s::Undef)", expr, id);
         }
 
@@ -41,6 +42,15 @@ struct Visitor : public hilti::visitor::PreOrder<std::string, Visitor> {
             return fmt("%s(%s)", cg->compile(dst, codegen::TypeUsage::Storage), expr);
 
         logger().internalError(fmt("codegen: unexpected type coercion from error to %s", dst.typename_()));
+    }
+
+    result_t operator()(const type::Interval& src) {
+        if ( auto t = dst.tryAs<type::Bool>() ) {
+            auto id = cg->compile(src, codegen::TypeUsage::Storage);
+            return fmt("(%s != hilti::rt::Interval())", expr);
+        }
+
+        logger().internalError(fmt("codegen: unexpected type coercion from interval to %s", dst.typename_()));
     }
 
     result_t operator()(const type::List& src) {
@@ -90,6 +100,16 @@ struct Visitor : public hilti::visitor::PreOrder<std::string, Visitor> {
         logger().internalError(fmt("codegen: unexpected type coercion from %s to %s", Type(src), dst.typename_()));
     }
 
+    result_t operator()(const type::Time& src) {
+        if ( auto t = dst.tryAs<type::Bool>() ) {
+            auto id = cg->compile(src, codegen::TypeUsage::Storage);
+            return fmt("(%s != hilti::rt::Time())", expr);
+        }
+
+        logger().internalError(fmt("codegen: unexpected type coercion from time to %s", dst.typename_()));
+    }
+
+
     result_t operator()(const type::Result& src) {
         if ( auto t = dst.tryAs<type::Bool>() )
             return fmt("static_cast<bool>(%s)", expr);
@@ -120,9 +140,10 @@ struct Visitor : public hilti::visitor::PreOrder<std::string, Visitor> {
         logger().internalError(fmt("codegen: unexpected type coercion from stream to %s", dst.typename_()));
     }
 
-    result_t operator()(const type::Union& src) {
+    result_t operator()(const type::Union& src, position_t p) {
         if ( auto t = dst.tryAs<type::Bool>() ) {
-            auto id = cg->compile(src, codegen::TypeUsage::Storage);
+            auto utype = p.node.as<Type>(); // preserve type ID
+            auto id = cg->compile(std::move(utype), codegen::TypeUsage::Storage);
             return fmt("(%s.index() > 0)", expr);
         }
 
@@ -138,11 +159,12 @@ struct Visitor : public hilti::visitor::PreOrder<std::string, Visitor> {
 
     result_t operator()(const type::Tuple& src) {
         if ( auto t = dst.tryAs<type::Tuple>() ) {
-            int i = 0;
             std::vector<cxx::Expression> exprs;
 
-            for ( auto [src, dst] : util::zip2(src.types(), t->types()) )
-                exprs.push_back(cg->coerce(fmt("std::get<%d>(%s)", i++, expr), src, dst));
+            assert(src.elements().size() == t->elements().size());
+            for ( int i = 0; i < src.elements().size(); i++ )
+                exprs.push_back(
+                    cg->coerce(fmt("std::get<%d>(%s)", i, expr), src.elements()[i].type(), t->elements()[i].type()));
 
             return fmt("std::make_tuple(%s)", util::join(exprs, ", "));
         }

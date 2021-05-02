@@ -47,7 +47,7 @@ static inline Type itemType(const Expression& op0, const Expression& op1) {
 } // namespace bitfield::detail
 
 BEGIN_OPERATOR_CUSTOM(bitfield, Member)
-    Type result(const std::vector<Expression>& ops) const {
+    Type result(const node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<field type>");
 

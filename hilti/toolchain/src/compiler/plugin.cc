@@ -46,18 +46,17 @@ static Plugin hilti_plugin() {
         .coerce_type = [](Type t, const Type& dst,
                           bitmask<CoercionStyle> style) { return detail::coerceType(std::move(t), dst, style); },
 
-        .build_scopes = [](const std::shared_ptr<hilti::Context>& ctx, const std::vector<std::pair<ID, NodeRef>>& m,
-                           Unit* u) { buildScopes(m, u); },
+        .ast_build_scopes = [](const std::shared_ptr<hilti::Context>& ctx, Node* m,
+                               Unit* u) { ast::buildScopes(m, u); },
 
-        .resolve_ids = [](const std::shared_ptr<hilti::Context>& ctx, Node* n, Unit* u) { return resolveIDs(n, u); },
+        .ast_normalize = [](const std::shared_ptr<hilti::Context>& ctx, Node* m,
+                            Unit* u) { return ast::normalize(m, u); },
 
-        .resolve_operators = [](const std::shared_ptr<hilti::Context>& ctx, Node* n,
-                                Unit* u) { return resolveOperators(n, u); },
+        .ast_resolve = [](const std::shared_ptr<hilti::Context>& ctx, Node* m, Unit* u) { return ast::resolve(m, u); },
 
-        .apply_coercions = [](const std::shared_ptr<hilti::Context>& ctx, Node* n,
-                              Unit* u) { return applyCoercions(n, u); },
+        .ast_coerce = [](const std::shared_ptr<hilti::Context>& ctx, Node* m, Unit* u) { return ast::coerce(m, u); },
 
-        .validate = [](const std::shared_ptr<hilti::Context>& ctx, Node* n, Unit* u) { validateAST(n); },
+        .ast_validate = [](const std::shared_ptr<hilti::Context>& ctx, Node* m, Unit* u) { return ast::validate(m); },
 
         .transform = {},
     };

@@ -47,6 +47,48 @@ struct CxxTypeInfo {
     std::optional<cxx::declaration::Constant> declaration; /**< Actual declaration for type information.  */
 };
 
+
+template<typename X, typename F>
+auto transform(const node::range<X>& x, F f) {
+    using Y = typename std::result_of<F(X&)>::type;
+    std::vector<Y> y;
+    y.reserve(x.size());
+    for ( const auto& i : x )
+        y.push_back(f(i));
+    return y;
+}
+
+template<typename X, typename F>
+auto transform(const node::set<X>& x, F f) {
+    using Y = typename std::result_of<F(X&)>::type;
+    std::vector<Y> y;
+    y.reserve(x.size());
+    for ( const auto& i : x )
+        y.push_back(f(i));
+    return y;
+}
+
+/** Filters a vector through a boolean predicate. */
+template<typename X, typename F>
+auto filter(const node::range<X>& x, F f) {
+    node::set<X> y;
+    for ( const auto& i : x )
+        if ( f(i) )
+            y.push_back(i);
+    return y;
+}
+
+/** Filters a vector through a boolean predicate. */
+template<typename X, typename F>
+auto filter(const node::set<X>& x, F f) {
+    node::set<X> y;
+    for ( const auto& i : x )
+        if ( f(i) )
+            y.push_back(i);
+    return y;
+}
+
+
 } // namespace codegen
 
 /**
@@ -79,8 +121,10 @@ public:
                                        function::CallingConvention cc = function::CallingConvention::Standard,
                                        const std::optional<AttributeSet>& fattrs = {},
                                        std::optional<cxx::ID> namespace_ = {});
-    std::vector<cxx::Expression> compileCallArguments(const std::vector<Expression>& args,
-                                                      const std::vector<declaration::Parameter>& params);
+    std::vector<cxx::Expression> compileCallArguments(const node::range<Expression>& args,
+                                                      const node::set<declaration::Parameter>& params);
+    std::vector<cxx::Expression> compileCallArguments(const node::range<Expression>& args,
+                                                      const node::range<declaration::Parameter>& params);
     std::optional<cxx::Expression> typeDefaultValue(const hilti::Type& t);
 
     cxx::Expression typeInfo(const hilti::Type& t);

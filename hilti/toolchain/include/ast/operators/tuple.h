@@ -18,7 +18,7 @@ STANDARD_OPERATOR_2(tuple, Unequal, type::Bool(), type::constant(type::Tuple(typ
                     operator_::sameTypeAs(0, "tuple<*>"), "Compares two tuples element-wise.");
 
 BEGIN_OPERATOR_CUSTOM(tuple, Index)
-    Type result(const std::vector<Expression>& ops) const {
+    Type result(const node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<type of element>");
 
@@ -33,12 +33,12 @@ BEGIN_OPERATOR_CUSTOM(tuple, Index)
         if ( ! i )
             return type::unknown;
 
-        const auto& types = ops[0].type().as<type::Tuple>().types();
+        const auto& elements = ops[0].type().as<type::Tuple>().elements();
 
-        if ( types.size() <= i->value() )
+        if ( elements.size() <= i->value() )
             return type::unknown;
 
-        return types[i->value()];
+        return elements[i->value()].type();
     }
 
     bool isLhs() const { return true; }
@@ -50,7 +50,7 @@ BEGIN_OPERATOR_CUSTOM(tuple, Index)
     void validate(const expression::ResolvedOperator& i, operator_::position_t p) const {
         if ( auto ec = i.op1().tryAs<expression::Ctor>() )
             if ( auto c = ec->ctor().tryAs<ctor::UnsignedInteger>() ) {
-                if ( c->value() < 0 || c->value() >= i.op0().type().as<type::Tuple>().types().size() )
+                if ( c->value() < 0 || c->value() >= i.op0().type().as<type::Tuple>().elements().size() )
                     p.node.addError("tuple index out of range");
 
                 return;
@@ -65,7 +65,7 @@ BEGIN_OPERATOR_CUSTOM(tuple, Index)
 END_OPERATOR_CUSTOM
 
 BEGIN_OPERATOR_CUSTOM(tuple, Member)
-    Type result(const std::vector<Expression>& ops) const {
+    Type result(const node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<type of element>");
 
@@ -74,7 +74,7 @@ BEGIN_OPERATOR_CUSTOM(tuple, Member)
         if ( ! elem )
             return type::unknown;
 
-        return elem->second;
+        return elem->second->type();
     }
 
     bool isLhs() const { return true; }

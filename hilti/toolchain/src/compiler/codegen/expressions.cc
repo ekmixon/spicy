@@ -24,7 +24,7 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         if ( auto c = n.target().tryAs<expression::Ctor>() ) {
             if ( c->ctor().type().isA<type::Tuple>() ) {
                 auto t = c->ctor().as<ctor::Tuple>().value();
-                auto l = util::join(util::transform(t, [this](auto& x) { return cg->compile(x, true); }), ", ");
+                auto l = util::join(codegen::transform(t, [this](auto& x) { return cg->compile(x, true); }), ", ");
                 return fmt("std::tie(%s) = %s", l, cg->compile(n.source()));
             }
         }
@@ -41,14 +41,15 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
         // not present for certain globals:
         //
         //     auto arguments =
-        //         util::join(util::transform(n.arguments(), [this](auto& x) { return cg->compile(x, true); }), ", ");
+        //         util::join(codegen::transform(n.arguments(), [this](auto& x) { return cg->compile(x, true); }), ",
+        //         ");
         //
         //     return fmt("%s(%s)", cxx::ID(n.cxxname()), arguments);
 
         cxx::Block block;
         cg->pushCxxBlock(&block);
         auto arguments =
-            util::join(util::transform(n.arguments(), [this](auto& x) { return cg->compile(x, true); }), ", ");
+            util::join(codegen::transform(n.arguments(), [this](auto& x) { return cg->compile(x, true); }), ", ");
         cg->popCxxBlock();
 
         block.addStatement(fmt("%s(%s)", cxx::ID(n.cxxname()), arguments));
@@ -96,7 +97,7 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
     }
 
     result_t operator()(const expression::ListComprehension& n) {
-        auto id = cxx::ID(n.id());
+        auto id = cxx::ID(n.local().id());
         auto input = cg->compile(n.input());
         auto itype = cg->compile(n.input().type().elementType(), codegen::TypeUsage::Storage);
         auto otype = cg->compile(n.output().type(), codegen::TypeUsage::Storage);

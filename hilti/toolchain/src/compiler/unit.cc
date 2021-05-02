@@ -12,6 +12,8 @@
 #include <hilti/compiler/plugin.h>
 #include <hilti/compiler/unit.h>
 
+#include "ast/node.h"
+
 using namespace hilti;
 using namespace hilti::context;
 using util::fmt;
@@ -142,14 +144,13 @@ Result<hilti::Module> Unit::parse(const std::shared_ptr<Context>& context, const
 }
 
 Result<Nothing> Unit::compile() {
-    _dumpASTs(logging::debug::AstOrig, "Original AST");
-
     std::set<ID> performed_imports;
 
     for ( const auto& p : plugin::registry().plugins() ) {
         HILTI_DEBUG(logging::debug::Compiler, fmt("Plugin %s", p.component));
         logging::DebugPushIndent _(logging::debug::Compiler);
 
+        _dumpASTs(logging::debug::AstOrig, "Original AST");
         _saveIterationASTs(p, "AST before first iteration");
 
         int round = 1;
@@ -195,30 +196,32 @@ Result<Nothing> Unit::compile() {
             for ( auto& [id, module] : modules )
                 _resetNodes(id, &*module);
 
-            if ( ! runHook(p, &Plugin::build_scopes, "building scopes for all modules", context(), modules, this) )
-                return result::Error("errors encountered during scope building");
+            for ( auto& [id, module] : modules ) {
+                // Need to run each phase on all modules first before proceeding to the
+                // next as they maybe be cross-module dependencies in later phases.
+                if ( ! runHook(p, &Plugin::ast_build_scopes, "building scopes for all modules", context(), &*module,
+                               this) )
+                    return result::Error("errors encountered during scope building");
+            }
 
             _dumpASTs(logging::debug::AstScopes, "ASTs with scopes", round);
 
             for ( auto& [id, module] : modules ) {
-                if ( ! runModifyingHook(p, &modified, &Plugin::resolve_ids, fmt("resolving IDs in module %s", id),
+                if ( ! runModifyingHook(p, &modified, &Plugin::ast_normalize, fmt("normalizing nodes in module %s", id),
                                         context(), &*module, this) )
-                    return result::Error("errors encountered during ID resolving");
-            }
+                    return result::Error("errors encountered during normalizing");
 
-            for ( auto& [id, module] : modules ) {
-                if ( ! runModifyingHook(p, &modified, &Plugin::resolve_operators,
-                                        fmt("resolving operators in module %s", id), context(), &*module, this) )
-                    return result::Error("errors encountered during operator resolving");
-            }
-
-            for ( auto& [id, module] : modules ) {
-                if ( ! runModifyingHook(p, &modified, &Plugin::apply_coercions, fmt("coercing expressions for %s", id),
+                if ( ! runModifyingHook(p, &modified, &Plugin::ast_coerce, fmt("coercing nodes in module %s", id),
                                         context(), &*module, this) )
-                    return result::Error("errors encountered during expression coercion");
+                    return result::Error("errors encountered during coercing");
+
+                if ( ! runModifyingHook(p, &modified, &Plugin::ast_resolve, fmt("resolving nodes in module %s", id),
+                                        context(), &*module, this) )
+                    return result::Error("errors encountered during resolving");
             }
 
             _dumpASTs(logging::debug::AstResolved, "AST after resolving", round);
+            _saveIterationASTs(p, "Final AST", round);
 
             if ( ! modified && extra_rounds-- == 0 )
                 break;
@@ -227,17 +230,28 @@ Result<Nothing> Unit::compile() {
                 logger().internalError("hilti::Unit::compile() didn't terminate, AST keeps changing");
         }
 
+        auto current = _currentModules();
+
+        /*
+         * if ( ! options().skip_validation && ! _collectErrors(current) ) {
+         *     _dumpASTs(logging::debug::AstFinal, "Final AST");
+         *     _saveIterationASTs(p, "Final AST", round);
+         *     return result::Error("errors encountered during processing");
+         * }
+         */
+
+        if ( ! options().skip_validation ) {
+            for ( auto& [id, module] : current ) {
+                bool modified = false;
+                runModifyingHook(p, &modified, &Plugin::ast_validate, fmt("validating module %s", id), context(),
+                                 &*module, this);
+            }
+        }
+
         _dumpASTs(logging::debug::AstFinal, "Final AST");
         _saveIterationASTs(p, "Final AST", round);
 
-        auto current = _currentModules();
-        // TODO: can get red of the callback now.
-        auto valid = _validateASTs(current, [&](const ID& id, NodeRef& module) {
-            return runHook(p, &Plugin::validate, fmt("validating module %s", id), context(), &*module,
-                           this);
-        });
-
-        if ( ! valid )
+        if ( ! options().skip_validation && ! _collectErrors(current) )
             return result::Error("errors encountered during validation");
     }
 
@@ -331,13 +345,13 @@ Result<Nothing> Unit::codegen() {
     return Nothing();
 }
 
-std::vector<std::pair<ID, NodeRef>> Unit::_currentModules() const {
-    std::vector<std::pair<ID, NodeRef>> modules;
+std::vector<std::pair<ID, Node*>> Unit::_currentModules() const {
+    std::vector<std::pair<ID, Node*>> modules;
 
     for ( const auto& id : _modules ) {
         auto cached = _context->lookupModule(id);
         assert(cached);
-        modules.emplace_back(id, NodeRef(cached->node));
+        modules.emplace_back(id, cached->node);
     }
 
     return modules;
@@ -503,133 +517,94 @@ void Unit::_determineCompilationRequirements(const Node& module) {
         v.dispatch(i);
 }
 
-bool Unit::_validateASTs(std::vector<std::pair<ID, NodeRef>>& modules,
-                         const std::function<bool(const ID&, NodeRef&)>& run_hooks_callback) {
-    if ( options().skip_validation )
-        return true;
-
-    auto valid = true;
-
-    for ( auto& [id, module] : modules ) {
-        if ( ! _validateAST(id, NodeRef(module), run_hooks_callback) )
-            valid = false;
-    }
-
-    return valid;
-}
-
+/*
+ * bool Unit::_validateASTs(std::vector<std::pair<ID, NodeRef>>& modules,
+ *                          const std::function<bool(const ID&, NodeRef&)>& run_hooks_callback) {
+ *     if ( options().skip_validation )
+ *         return true;
+ *
+ *     auto valid = true;
+ *
+ *     for ( auto& [id, module] : modules ) {
+ *         if ( ! _validateAST(id, NodeRef(module), run_hooks_callback) )
+ *             valid = false;
+ *     }
+ *
+ *     return valid;
+ * }
+ */
 /**
  * Recursive helper function to traverse the AST and collect relevant errors.
- * We pick errors on child nodes first, and then hide any further ones
- * located in parents along the way. We take only the first error in each
- * priority class (normal & low). If a node doesn't have a location, we
- * substitute the closest parent location.
+ * We pick errors on child nodes first, and then hide any further ones located
+ * in parents along the way unless they have higher priority. If a node doesn't
+ * have a location, we substitute the closest parent location.
  *
  * @param n root node for validation
  * @param closest_location location closest to *n* on the path leading to it
  * @param errors errors recorded for reporting so far; function will extend this
- * @return two booleans with the 1st indicating if we have already found a
- * normal priroity error on the path, and the 2nd if we have already found a
- * low priority error on the path.
+ * @return highest error priority seen so far current path; `NoError` if no error was encountered
  */
-static std::pair<bool, bool> _recursiveValidateAST(const Node& n, Location closest_location,
-                                                   std::vector<node::Error>* errors) {
-    auto have_normal = false;
-    auto have_low = false;
-
+static node::ErrorPriority _recursiveValidateAST(const Node& n, Location closest_location, node::ErrorPriority prio,
+                                                 int level, std::vector<node::Error>* errors) {
     if ( n.location() )
         closest_location = n.location();
 
-    for ( const auto& c : n.childs() ) {
-        auto [normal, low] = _recursiveValidateAST(c, closest_location, errors);
-        have_normal = (have_normal || normal);
-        have_low = (have_low || low);
+    if ( ! n.isAlias() && n.childs().size() ) {
+        for ( const auto& c : n.childs() )
+            prio = _recursiveValidateAST(c, closest_location, node::ErrorPriority::NoError, level + 1, errors);
     }
 
-    if ( have_normal )
-        return std::make_pair(have_normal, have_low);
+    bool first = 0;
+    auto errs = n.errors();
+    for ( auto e = errs.rbegin(); e != errs.rend(); e++ ) {
+        if ( ! e->location && closest_location )
+            e->location = closest_location;
 
-    if ( n.hasErrors() ) {
-        for ( auto&& e : n.errors() ) {
-            if ( ! e.location && closest_location )
-                e.location = closest_location;
+        if ( e->priority > prio || first ) {
+            errors->push_back(*e);
+            prio = e->priority;
 
-            if ( ! (have_normal || have_low) )
-                errors->emplace_back(std::move(e));
-        }
-
-        for ( const auto& e : n.errors() ) {
-            if ( e.priority == node::ErrorPriority::Normal )
-                return std::make_pair(true, have_low);
-            else
-                return std::make_pair(have_normal, true);
+            first = false;
         }
     }
 
-    return std::make_pair(have_normal, have_low);
+    return prio;
 }
 
 static void _reportErrors(const std::vector<node::Error>& errors) {
-    // We skip any low-priority errors at first. Only if we have only those,
-    // we will report them. We also generally suppress duplicates.
+    // We only report the highest priority errsor category.
     std::set<node::Error> reported;
 
-    auto report_one = [&](const auto& e) {
-        if ( reported.find(e) == reported.end() ) {
-            logger().error(e.message, e.context, e.location);
-            reported.insert(e);
+    auto prios = std::vector<node::ErrorPriority>(
+        {node::ErrorPriority::High, node::ErrorPriority::Normal, node::ErrorPriority::Low});
+
+    for ( auto p : prios ) {
+        for ( const auto& e : errors ) {
+            if ( e.priority != p )
+                continue;
+
+            if ( reported.find(e) == reported.end() ) {
+                logger().error(e.message, e.context, e.location);
+                reported.insert(e);
+            }
         }
-    };
 
-    for ( const auto& e : errors ) {
-        if ( e.priority != node::ErrorPriority::Low )
-            report_one(e);
-    }
-
-    if ( reported.size() )
-        return;
-
-    for ( const auto& e : errors ) {
-        if ( e.priority == node::ErrorPriority::Low )
-            report_one(e);
+        if ( reported.size() )
+            break;
     }
 }
 
-bool Unit::_validateASTs(const ID& id, std::vector<Node>& nodes,
-                         const std::function<bool(const ID&, std::vector<Node>&)>& run_hooks_callback) {
-    if ( options().skip_validation )
-        return true;
-
-    if ( ! run_hooks_callback(id, nodes) )
-        return false;
-
+bool Unit::_collectErrors(std::vector<std::pair<ID, Node*>>& modules) {
     std::vector<node::Error> errors;
-    for ( auto& n : nodes )
-        _recursiveValidateAST(n, Location(), &errors);
+    for ( auto& n : modules )
+        _recursiveValidateAST(*n.second, Location(), node::ErrorPriority::NoError, 0, &errors);
 
-    if ( errors.empty() )
-        return true;
-
-    _reportErrors(errors);
-    return false;
-}
-
-bool Unit::_validateAST(const ID& id, NodeRef module,
-                        const std::function<bool(const ID&, NodeRef&)>& run_hooks_callback) {
-    if ( options().skip_validation )
-        return true;
-
-    if ( ! run_hooks_callback(id, module) )
+    if ( errors.size() || logger().errors() ) {
+        _reportErrors(errors);
         return false;
+    }
 
-    std::vector<node::Error> errors;
-    _recursiveValidateAST(*module, Location(), &errors);
-
-    if ( errors.empty() )
-        return true;
-
-    _reportErrors(errors);
-    return false;
+    return true;
 }
 
 void Unit::_dumpAST(const Node& module, const logging::DebugStream& stream, const std::string& prefix, int round) {
@@ -728,8 +703,8 @@ void Unit::_resetNodes(const ID& id, Node* root) {
     HILTI_DEBUG(logging::debug::Compiler, fmt("resetting nodes for module %s", id));
 
     for ( const auto&& i : hilti::visitor::PreOrder<>().walk(root) ) {
-        i.node.clearCache();
-        i.node.clearScope();
+        // i.node.clearCache();
+        i.node.clearScope(); // TODO: can we avoid this?
         i.node.clearErrors();
     }
 }
