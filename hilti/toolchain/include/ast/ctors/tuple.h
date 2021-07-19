@@ -19,7 +19,7 @@ namespace ctor {
 class Tuple : public NodeBase, public hilti::trait::isCtor {
 public:
     Tuple(std::vector<Expression> v, Meta m = Meta()) : NodeBase(nodes(_inferType(v), std::move(v)), std::move(m)) {}
-    Tuple(node::range<Expression> v, Meta m = Meta()) : Tuple(v.copy<Expression>(), std::move(m)) {}
+    Tuple(hilti::node::range<Expression> v, Meta m = Meta()) : Tuple(v.copy<Expression>(), std::move(m)) {}
 
     auto value() const { return childs<Expression>(1, -1); }
 

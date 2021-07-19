@@ -10,6 +10,7 @@
 #include <hilti/global.h>
 
 #include "ast/node.h"
+#include "ast/type.h"
 
 using namespace hilti;
 using util::fmt;
@@ -97,12 +98,12 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
             if ( type::isReferenceType(t) )
                 t = t.dereferencedType();
 
-            if ( ! t.isA<type::Struct>() )
-                error("only struct types can have arguments", p);
+            if ( ! type::takesArguments(t) )
+                error("type does not take arguments", p);
         }
 
-        if ( auto st = n.type().tryAs<type::Struct>() )
-            _checkStructArguments(n.typeArguments(), st->parameters(), p);
+        if ( type::takesArguments(n.type()) )
+            _checkStructArguments(n.typeArguments(), n.type().parameters(), p);
 
         // Check whether this local variable was declared at module scope. We
         // need to match exact parent nodes here to not match other locals
@@ -146,12 +147,12 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
             error("cannot use wildcard type for variables", p);
 
         if ( auto args = n.typeArguments(); args.size() ) {
-            if ( ! n.type().isA<type::Struct>() )
-                error("only struct types can have arguments", p);
+            if ( ! type::takesArguments(n.type()) )
+                error("type does not take arguments", p);
         }
 
-        if ( auto st = n.type().tryAs<type::Struct>() )
-            _checkStructArguments(n.typeArguments(), st->parameters(), p);
+        if ( type::takesArguments(n.type()) )
+            _checkStructArguments(n.typeArguments(), n.type().parameters(), p);
     }
 
     ////// Ctors
@@ -162,8 +163,13 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
         if ( auto vr = t.tryAs<type::ValueReference>() )
             t = vr->dereferencedType();
 
-        if ( auto st = t.tryAs<type::Struct>() )
-            _checkStructArguments(c.typeArguments(), st->parameters(), p);
+        if ( auto args = c.typeArguments(); args.size() ) {
+            if ( ! type::takesArguments(t) )
+                error("type does not take arguments", p);
+        }
+
+        if ( type::takesArguments(t) )
+            _checkStructArguments(c.typeArguments(), t.parameters(), p);
     }
 
     void operator()(const hilti::ctor::Exception& e, position_t p) {
@@ -523,7 +529,7 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
     void operator()(const operator_::generic::New& n, position_t p) {
         // We reuse the _checkStructArguments() here, that's why this operator is covered here.
         if ( auto t = n.operands()[0].type().tryAs<type::Type_>() ) {
-            if ( auto st = t->typeValue().tryAs<type::Struct>() ) {
+            if ( type::takesArguments(t->typeValue()) ) {
                 node::range<Expression> args;
                 if ( n.operands().size() > 1 ) {
                     auto ctor = n.operands()[1].as<expression::Ctor>().ctor();
@@ -533,7 +539,7 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
                     args = ctor.as<ctor::Tuple>().value();
                 }
 
-                _checkStructArguments(args, st->parameters(), p);
+                _checkStructArguments(args, t->typeValue().parameters(), p);
             }
         }
     }
@@ -560,12 +566,10 @@ struct Visitor : public visitor::PostOrder<void, Visitor> {
 
 } // anonymous namespace
 
-bool hilti::detail::ast::validate(Node* root) {
+void hilti::detail::ast::validate(Node* root) {
     util::timing::Collector _("hilti/compiler/ast/validator");
 
     auto v = Visitor();
     for ( auto i : v.walk(root) )
         v.dispatch(i);
-
-    return false;
 }

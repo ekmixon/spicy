@@ -64,6 +64,8 @@ public:
                attributes() == other.attributes() && callingConvention() == other.callingConvention();
     }
 
+    void setBody(Statement b) { childs()[2] = std::move(b); }
+
     /** Internal method for use by builder API only. */
     Node& _typeNode() { return childs()[1]; }
 

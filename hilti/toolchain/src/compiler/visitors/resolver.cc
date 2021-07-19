@@ -847,13 +847,11 @@ std::vector<Node> Visitor::matchOverloads(const std::vector<Operator>& candidate
                                           const node::range<Expression>& operands, const Meta& meta,
                                           bool disallow_type_changes) {
     static const std::vector<bitmask<CoercionStyle>> styles = {
-        CoercionStyle::PreferOriginalType | CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch,
-        CoercionStyle::PreferOriginalType | CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch |
+        CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch,
+        CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch | CoercionStyle::TryCoercion,
+        CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch | CoercionStyle::TryConstPromotion,
+        CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch | CoercionStyle::TryConstPromotion |
             CoercionStyle::TryCoercion,
-        CoercionStyle::PreferOriginalType | CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch |
-            CoercionStyle::TryConstPromotion,
-        CoercionStyle::PreferOriginalType | CoercionStyle::OperandMatching | CoercionStyle::TryExactMatch |
-            CoercionStyle::TryConstPromotion | CoercionStyle::TryCoercion,
     };
 
     auto deref_operands = [&](const node::range<Expression>& ops) {

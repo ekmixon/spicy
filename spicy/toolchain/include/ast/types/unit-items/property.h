@@ -31,7 +31,7 @@ public:
     }
 
     // Unit field interface
-    Type itemType() const { return type::Void(); }
+    const Type& itemType() const { return type::void_; }
     auto isEqual(const Item& other) const { return node::isEqual(this, other); }
 
     // Node interface.

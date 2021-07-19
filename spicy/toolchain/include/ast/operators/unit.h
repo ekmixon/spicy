@@ -1,20 +1,232 @@
 // Copyright (c) 2020-2021 by the Zeek Project. See LICENSE for details.
+//
+// This code replicates a number of operators from HILTI's struct type.
 
 #pragma once
 
 #include <vector>
 
 #include <hilti/ast/builder/expression.h>
+#include <hilti/ast/expressions/member.h>
 #include <hilti/ast/operator.h>
 #include <hilti/ast/operators/common.h>
+#include <hilti/ast/types/any.h>
 #include <hilti/ast/types/bytes.h>
 #include <hilti/ast/types/computed.h>
 #include <hilti/ast/types/integer.h>
 #include <hilti/ast/types/stream.h>
+#include <hilti/ast/types/unknown.h>
 
 #include <spicy/ast/types/unit.h>
 
+using namespace ::hilti::operator_;
+
 namespace spicy::operator_ {
+
+namespace unit::detail {
+
+// Returns an operand as a member expression.
+static hilti::expression::Member memberExpression(const Expression& op) {
+    if ( auto c = op.tryAs<hilti::expression::Coerced>() )
+        return c->expression().as<hilti::expression::Member>();
+
+    return op.as<hilti::expression::Member>();
+}
+
+// Checks if an operand refers to a valid field inside a unit.
+static inline void checkName(const Expression& op0, const Expression& op1, Node& node) {
+    auto id = memberExpression(op1).id().local();
+    auto f = op0.type().as<type::Unit>().field(id);
+
+    if ( ! f ) {
+        node.addError(hilti::util::fmt("type does not have field '%s'", id));
+        return;
+    }
+}
+
+// Returns the type of a unit field referenced by an operand.
+static inline Type itemType(const Expression& op0, const Expression& op1) {
+    if ( auto st = op0.type().tryAs<type::Unit>() ) {
+        if ( auto f = st->field(memberExpression(op1).id().local()) )
+            return f->itemType();
+    }
+
+    return type::unknown;
+}
+
+} // namespace unit::detail
+
+BEGIN_OPERATOR_CUSTOM(unit, Unset)
+    Type result(const hilti::node::range<Expression>& ops) const { return type::Void(); }
+
+    bool isLhs() const { return true; }
+
+    std::vector<Operand> operands() const {
+        return {{.type = type::Unit(type::Wildcard()), .doc = "unit"},
+                {.type = type::Member(type::Wildcard()), .doc = "<field>"}};
+    }
+
+    void validate(const hilti::expression::ResolvedOperator& i, hilti::operator_::position_t p) const {
+        detail::checkName(i.op0(), i.op1(), p.node);
+    }
+
+    std::string doc() const {
+        return R"(
+Clears an optional field.
+)";
+    }
+END_OPERATOR_CUSTOM_x
+
+BEGIN_OPERATOR_CUSTOM_x(unit, MemberNonConst, Member)
+    Type result(const hilti::node::range<Expression>& ops) const {
+        if ( ops.empty() )
+            return type::DocOnly("<field type>");
+
+        return detail::itemType(ops[0], ops[1]);
+    }
+
+    bool isLhs() const { return true; }
+
+    std::vector<Operand> operands() const {
+        return {{.type = type::Unit(type::Wildcard()), .doc = "unit"},
+                {.type = type::Member(type::Wildcard()), .doc = "<field>"}};
+    }
+
+    void validate(const hilti::expression::ResolvedOperator& i, hilti::operator_::position_t p) const {
+        detail::checkName(i.op0(), i.op1(), p.node);
+    }
+
+    std::string doc() const {
+        return R"(
+Retrieves the value of a unit's field. If the field does not have a value assigned,
+it returns its ``&default`` expression if that has been defined; otherwise it
+triggers an exception.
+)";
+    }
+END_OPERATOR_CUSTOM_x
+
+BEGIN_OPERATOR_CUSTOM_x(unit, MemberConst, Member)
+    Type result(const hilti::node::range<Expression>& ops) const {
+        if ( ops.empty() )
+            return type::DocOnly("<field type>");
+
+        return detail::itemType(ops[0], ops[1]);
+    }
+
+    bool isLhs() const { return false; }
+
+    std::vector<Operand> operands() const {
+        return {{.type = type::constant(type::Unit(type::Wildcard())), .doc = "unit"},
+                {.type = type::Member(type::Wildcard()), .doc = "<field>"}};
+    }
+
+    void validate(const hilti::expression::ResolvedOperator& i, position_t p) const {
+        detail::checkName(i.op0(), i.op1(), p.node);
+    }
+
+    std::string doc() const {
+        return R"(
+Retrieves the value of a unit's field. If the field does not have a value assigned,
+it returns its ``&default`` expression if that has been defined; otherwise it
+triggers an exception.
+)";
+    }
+END_OPERATOR_CUSTOM_x
+
+BEGIN_OPERATOR_CUSTOM(unit, TryMember)
+    Type result(const hilti::node::range<Expression>& ops) const {
+        if ( ops.empty() )
+            return type::DocOnly("<field type>");
+
+        return detail::itemType(ops[0], ops[1]);
+    }
+
+    bool isLhs() const { return false; }
+
+    std::vector<Operand> operands() const {
+        return {{.type = type::Unit(type::Wildcard()), .doc = "unit"},
+                {.type = type::Member(type::Wildcard()), .doc = "<field>"}};
+    }
+
+    void validate(const hilti::expression::ResolvedOperator& i, position_t p) const {
+        detail::checkName(i.op0(), i.op1(), p.node);
+    }
+
+    std::string doc() const {
+        return R"(
+Retrieves the value of a unit's field. If the field does not have a value
+assigned, it returns its ``&default`` expression if that has been defined;
+otherwise it signals a special non-error exception to the host application
+(which will normally still lead to aborting execution, similar to the standard
+dereference operator, unless the host application specifically handles this
+exception differently).
+)";
+    }
+END_OPERATOR_CUSTOM
+
+BEGIN_OPERATOR_CUSTOM(unit, HasMember)
+    Type result(const hilti::node::range<Expression>& /* ops */) const { return type::Bool(); }
+
+    bool isLhs() const { return false; }
+
+    std::vector<Operand> operands() const {
+        return {{.type = type::constant(type::Unit(type::Wildcard())), .doc = "unit"},
+                {.type = type::Member(type::Wildcard()), .doc = "<field>"}};
+    }
+
+    void validate(const hilti::expression::ResolvedOperator& i, position_t p) const {
+        detail::checkName(i.op0(), i.op1(), p.node);
+    }
+
+    std::string doc() const {
+        return "Returns true if the unit's field has a value assigned (not counting any ``&default``).";
+    }
+END_OPERATOR_CUSTOM
+
+OPERATOR_DECLARE_ONLY(unit, MemberCall)
+
+namespace unit {
+
+class MemberCall : public hilti::expression::ResolvedOperatorBase {
+public:
+    using hilti::expression::ResolvedOperatorBase::ResolvedOperatorBase;
+
+    struct Operator : public hilti::trait::isOperator {
+        Operator(const type::Unit& stype, const type::unit::item::Field& f) : _field(f) {
+            auto ftype = f.itemType().as<type::Function>();
+            auto op0 = Operand{.type = stype};
+            auto op1 = Operand{.type = type::Member(f.id())};
+            auto op2 = Operand{.type = type::OperandList::fromParameters(ftype.parameters())};
+            _operands = {op0, op1, op2};
+            _result = ftype.result().type();
+        };
+
+        static Kind kind() { return Kind::MemberCall; }
+        std::vector<Operand> operands() const { return _operands; }
+        Type result(const hilti::node::range<Expression>& /* ops */) const { return _result; }
+        bool isLhs() const { return false; }
+        void validate(const hilti::expression::ResolvedOperator& /* i */, position_t p) const {}
+        std::string doc() const { return "<dynamic - no doc>"; }
+        std::string docNamespace() const { return "<dynamic - no ns>"; }
+
+        Expression instantiate(const std::vector<Expression>& operands, const Meta& meta) const {
+            auto ops = std::vector<Expression>{operands[0],
+                                               hilti::expression::Member(_field.id(), _field.itemType(), _field.meta()),
+                                               operands[2]};
+
+            auto ro = hilti::expression::ResolvedOperator(MemberCall(*this, ops, meta));
+            ro.setMeta(meta);
+            return ro;
+        }
+
+    private:
+        type::unit::item::Field _field;
+        std::vector<Operand> _operands;
+        Type _result;
+    };
+};
+
+} // namespace unit
 
 BEGIN_METHOD(unit, Offset)
     auto signature() const {
@@ -183,12 +395,13 @@ Aborts parsing at the current position and returns back to the most recent
 END_METHOD
 
 static inline auto contextResult(bool is_const) {
-    return [=](const std::vector<Expression>& /* orig_ops */,
-               const std::vector<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const hilti::node::range<Expression>& /* orig_ops */,
+               const hilti::node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( resolved_ops.empty() )
             return type::DocOnly("<context>&");
 
-        return type::Computed(hilti::builder::member(hilti::builder::id("self"), "__context"));
+        return hilti::type::unknown; // FIXME type::Computed(hilti::builder::member(hilti::builder::id("self"),
+                                     // "__context"));
     };
 }
 

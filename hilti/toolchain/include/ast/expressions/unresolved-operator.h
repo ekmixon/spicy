@@ -18,7 +18,7 @@ public:
     UnresolvedOperator(operator_::Kind op, std::vector<Expression> operands, Meta meta = Meta())
         : NodeBase(nodes(type::Auto(), std::move(operands)), std::move(meta)), _kind(op) {}
 
-    UnresolvedOperator(operator_::Kind op, node::range<Expression> operands, Meta meta = Meta())
+    UnresolvedOperator(operator_::Kind op, hilti::node::range<Expression> operands, Meta meta = Meta())
         : NodeBase(nodes(type::Auto(), std::move(operands)), std::move(meta)), _kind(op) {}
 
     auto kind() const { return _kind; }

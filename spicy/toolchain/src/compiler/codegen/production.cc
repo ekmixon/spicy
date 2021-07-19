@@ -5,6 +5,26 @@
 using namespace spicy;
 using namespace spicy::detail;
 
+template<typename X, typename F>
+auto _transform(const hilti::node::range<X>& x, F f) {
+    using Y = typename std::result_of<F(X&)>::type;
+    std::vector<Y> y;
+    y.reserve(x.size());
+    for ( const auto& i : x )
+        y.push_back(f(i));
+    return y;
+}
+
+template<typename X, typename F>
+auto _transform(const hilti::node::set<X>& x, F f) {
+    using Y = typename std::result_of<F(X&)>::type;
+    std::vector<Y> y;
+    y.reserve(x.size());
+    for ( const auto& i : x )
+        y.push_back(f(i));
+    return y;
+}
+
 bool codegen::production::nullable(const std::vector<std::vector<Production>>& rhss) {
     if ( rhss.empty() )
         return true;
@@ -47,10 +67,7 @@ std::string codegen::production::to_string(const Production& p) {
 
         if ( auto x = f->arguments(); x.size() ) {
             args = hilti::util::fmt(", args: (%s)",
-                                    hilti::util::join(hilti::util::transform(x,
-                                                                             [](auto& a) {
-                                                                                 return hilti::util::fmt("%s", a);
-                                                                             }),
+                                    hilti::util::join(_transform(x, [](auto& a) { return hilti::util::fmt("%s", a); }),
                                                       ", "));
 
             field = hilti::util::fmt(" (field '%s', id %s, %s%s)", f->id(), id, to_string(f->engine()), args);

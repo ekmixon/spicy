@@ -121,7 +121,7 @@ inline Node to_node(Field f) { return Node(std::move(f)); }
 } // namespace struct_
 
 /** AST node for a struct type. */
-class Struct : public TypeBase, trait::isAllocable, trait::isParameterized, trait::isMutable {
+class Struct : public TypeBase, trait::isAllocable, trait::isParameterized, trait::takesArguments, trait::isMutable {
 public:
     Struct(std::vector<struct_::Field> fields, Meta m = Meta()) : TypeBase(nodes(node::none, std::move(fields)), m) {}
 
@@ -129,7 +129,7 @@ public:
         : TypeBase(nodes(node::none, std::move(fields),
                          util::transform(params,
                                          [](auto p) {
-                                             p.setIsStructParameter();
+                                             p.setIsTypeParameter();
                                              return Declaration(p);
                                          })),
                    std::move(m)) {}
@@ -158,8 +158,8 @@ public:
         return {};
     }
 
-    node::set<const struct_::Field> fields(const ID& id) const {
-        node::set<const struct_::Field> x;
+    hilti::node::set<const struct_::Field> fields(const ID& id) const {
+        hilti::node::set<const struct_::Field> x;
         for ( const auto& f : fields() ) {
             if ( f.id() == id )
                 x.push_back(f);
@@ -222,7 +222,7 @@ public:
      * struct type's constructor cannot do this because we need the `Node`
      * shell for this.
      */
-    static void initSelf(Node* n) {
+    static void setSelf(Node* n) {
         assert(n->isA<type::Struct>());
         n->childs()[0] = Declaration(Struct::_self(*n, n->meta()));
     }

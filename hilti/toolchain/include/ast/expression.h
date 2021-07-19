@@ -51,7 +51,7 @@ inline bool isResolved(const std::vector<detail::Expression>& exprs, type::Resol
     return true;
 }
 
-inline bool isResolved(const node::range<detail::Expression>& exprs, type::ResolvedState* rstate = nullptr) {
+inline bool isResolved(const hilti::node::range<detail::Expression>& exprs, type::ResolvedState* rstate = nullptr) {
     for ( const auto& e : exprs ) {
         if ( ! type::isResolved(e.type(), rstate) )
             return false;
@@ -60,7 +60,7 @@ inline bool isResolved(const node::range<detail::Expression>& exprs, type::Resol
     return true;
 }
 
-inline bool isResolved(const node::set<detail::Expression>& exprs, type::ResolvedState* rstate = nullptr) {
+inline bool isResolved(const hilti::node::set<detail::Expression>& exprs, type::ResolvedState* rstate = nullptr) {
     for ( const auto& e : exprs ) {
         if ( ! type::isResolved(e.type(), rstate) )
             return false;

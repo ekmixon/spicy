@@ -32,7 +32,7 @@ public:
     CodeGen(std::shared_ptr<hilti::Context> context) : _context(std::move(context)), _gb(this), _pb(this) {}
 
     /** Entry point for transformation from a Spicy AST to a HILTI AST. */
-    bool compileModule(hilti::Node* root, bool init, hilti::Unit* u);
+    bool compileModule(hilti::Node* root, hilti::Unit* u);
 
     const auto& context() const { return _context; }
     const auto& options() const { return _context->options(); }

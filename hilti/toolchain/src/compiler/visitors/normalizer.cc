@@ -116,7 +116,7 @@ struct Visitor : public visitor::PreOrder<void, Visitor> {
         }
     }
 
-    void operator()(const type::Struct& m, position_t p) { type::Struct::initSelf(&p.node); }
+    void operator()(const type::Struct& m, position_t p) { type::Struct::setSelf(&p.node); }
 };
 
 } // anonymous namespace

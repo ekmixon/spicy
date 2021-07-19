@@ -169,7 +169,7 @@ enable_testing()
 
 # Add subdirectories.
 add_subdirectory(hilti)
-#add_subdirectory(spicy)
+add_subdirectory(spicy)
 add_subdirectory(scripts)
 #add_subdirectory(ci/fuzz)
 

@@ -46,6 +46,11 @@ inline Expression default_(Type t, std::vector<Expression> type_args, const Meta
     return expression::Ctor(ctor::Default(std::move(t), std::move(type_args), m), m);
 }
 
+inline Expression default_(Type t, hilti::node::range<Expression> type_args, const Meta& m = Meta()) {
+    return expression::Ctor(ctor::Default(std::move(t), type_args.copy<Expression>(), m), m);
+}
+
+
 inline Expression exception(Type t, std::string msg, const Meta& m = Meta()) {
     return expression::Ctor(ctor::Exception(std::move(t), builder::string(std::move(msg)), m), m);
 }
@@ -211,10 +216,27 @@ inline Expression member(Expression self, std::string id_, const Meta& m = Meta(
                                           {std::move(self), expression::Member(ID(std::move(id_)), m)}, m);
 }
 
-inline Expression memberCall(Expression self, std::string id_, std::vector<Expression> v, const Meta& m = Meta()) {
+inline Expression hasMember(Expression self, std::string id_, const Meta& m = Meta()) {
+    return expression::UnresolvedOperator(operator_::Kind::HasMember,
+                                          {std::move(self), expression::Member(ID(std::move(id_)), m)}, m);
+}
+
+inline Expression tryMember(Expression self, std::string id_, const Meta& m = Meta()) {
+    return expression::UnresolvedOperator(operator_::Kind::TryMember,
+                                          {std::move(self), expression::Member(ID(std::move(id_)), m)}, m);
+}
+
+inline Expression memberCall(Expression self, std::string id_, std::vector<Expression> args, const Meta& m = Meta()) {
     return expression::UnresolvedOperator(operator_::Kind::MemberCall,
                                           {std::move(self), expression::Member(ID(std::move(id_)), m),
-                                           tuple(std::move(v), m)},
+                                           tuple(std::move(args), m)},
+                                          m);
+}
+
+inline Expression memberCall(Expression self, std::string id_, ctor::Tuple args, const Meta& m = Meta()) {
+    return expression::UnresolvedOperator(operator_::Kind::MemberCall,
+                                          {std::move(self), expression::Member(ID(std::move(id_)), m),
+                                           expression::Ctor(std::move(args))},
                                           m);
 }
 
@@ -324,28 +346,6 @@ inline Expression min(const Expression& e1, const Expression& e2, const Meta& m 
 
 inline Expression max(const Expression& e1, const Expression& e2, const Meta& m = Meta()) {
     return ternary(lowerEqual(e1, e2, m), e2, e1, m);
-}
-
-inline Expression type_wrapped(Expression e, const Meta& m = Meta()) {
-    assert("TODO: remove" && false);
-    return null();
-}
-
-inline Expression type_wrapped(Expression e, Type t, const Meta& m = Meta()) {
-    // TODO: I believe we can/should keep this one.
-    return expression::TypeWrapped(std::move(e), std::move(t), m);
-}
-
-inline Expression expect_type(Expression e, Type expected, const Meta& m = Meta()) {
-    assert("TODO: remove" && false);
-    return null();
-}
-
-// TODO: Remove
-// Forces interpreting a given expression as a value of a __library_type.
-inline Expression library_type_value(Expression e, ID library_type, const Meta& m = Meta()) {
-    assert("TODO: remove" && false);
-    return null();
 }
 
 inline auto port(Expression port, Expression protocol, const Meta& m = Meta()) {

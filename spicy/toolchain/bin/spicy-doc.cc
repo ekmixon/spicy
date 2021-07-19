@@ -83,10 +83,10 @@ static json operandToJSON(const hilti::operator_::Operand& o) {
 
     hilti::Type t;
 
-    if ( auto f =
-             std::get_if<std::function<std::optional<hilti::Type>(const std::vector<hilti::Expression>&,
-                                                                  const std::vector<hilti::Expression>&)>>(&o.type) )
-        t = *(*f)({}, {});
+    if ( auto f = std::get_if<std::function<std::optional<hilti::Type>(const hilti::node::range<hilti::Expression>&,
+                                                                       const hilti::node::range<hilti::Expression>&)>>(
+             &o.type) )
+        t = *(*f)(hilti::node::range<hilti::Expression>{}, hilti::node::range<hilti::Expression>{});
     else
         t = std::get<hilti::Type>(o.type);
 
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
         jop["kind"] = kindToString(op.kind());
         jop["doc"] = op.doc();
         jop["namespace"] = namespace_;
-        jop["rtype"] = formatType(op.result({}));
+        jop["rtype"] = formatType(op.result(hilti::node::range<hilti::Expression>()));
         jop["commutative"] = hilti::operator_::isCommutative(op.kind());
         jop["operands"] = json();
 

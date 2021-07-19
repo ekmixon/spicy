@@ -12,7 +12,7 @@
 [debug/compiler]       coercing nodes in module Foo
 [debug/compiler]       resolving nodes in module Foo
 [debug/compiler]     validating module Foo
-[debug/ast-final] # Foo: Final AST
+[debug/ast-final] # [HILTI] Foo: Final AST
 [debug/ast-final]   - Module %1 (types.hlt:5:1-10:2) [@m:XXX]
 [debug/ast-final]       | Foo -> declaration::Module %4 <id="Foo"> [canon-id: Foo] [@d:XXX] ([@d:XXX])
 [debug/ast-final]       | x1 -> declaration::GlobalVariable %2 <linkage="private"> [canon-id: Foo::x1] [@d:XXX] ([@d:XXX])

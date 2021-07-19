@@ -60,9 +60,9 @@ public:
      * Returns all of module's property declarations of a given name. If
      * there's no property declaration of that ID, return an empty container.
      *
-     * @param id name of the property to return
+     * @param id name of the property to return; unset for for all
      */
-    node::set<declaration::Property> moduleProperties(const ID& id) const;
+    hilti::node::set<declaration::Property> moduleProperties(const std::optional<ID>& id) const;
 
     /**
      * Adds a declaration to the module. It will be appended to the current
@@ -103,7 +103,7 @@ public:
      * This allows keeping references to the node valid while not making the
      * node itself part of the AST. That's especially useful when
      * transforming nodes from one representation to another, but wanting to
-     * retain a link to the original one through `Node::setOriginalNode()`.
+     * retain a link to the original one through `hilti::node::setOriginalNode()`.
      *
      * @return reference to the preserved node
      */

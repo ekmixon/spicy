@@ -54,7 +54,7 @@ private:                                                                        
                                                                                                                        \
     std::string doc() const { return signature().doc; }                                                                \
                                                                                                                        \
-    hilti::Type result(const node::range<hilti::Expression>& ops) const {                                              \
+    hilti::Type result(const hilti::node::range<hilti::Expression>& ops) const {                                       \
         return *hilti::operator_::type(signature().result, ops, ops);                                                  \
     }                                                                                                                  \
                                                                                                                        \
@@ -210,8 +210,8 @@ private:                                                                        
 #define END_METHOD                                                                                                     \
     __END_METHOD                                                                                                       \
                                                                                                                        \
-    hilti::Type result(const node::range<hilti::Expression>& ops) const {                                              \
-        return *hilti::operator_::type(signature().result, node::range(ops), ops);                                     \
+    hilti::Type result(const hilti::node::range<hilti::Expression>& ops) const {                                       \
+        return *hilti::operator_::type(signature().result, hilti::node::range(ops), ops);                              \
     }                                                                                                                  \
                                                                                                                        \
     bool isLhs() const { return false; }                                                                               \
@@ -243,7 +243,7 @@ private:                                                                        
                                                                                                                        \
     std::string doc() const { return signature().doc; }                                                                \
                                                                                                                        \
-    hilti::Type result(const node::range<hilti::Expression>& ops) const {                                              \
+    hilti::Type result(const hilti::node::range<hilti::Expression>& ops) const {                                       \
         if ( ops.size() )                                                                                              \
             return ops[0].type().as<hilti::type::Type_>().typeValue();                                                 \
                                                                                                                        \

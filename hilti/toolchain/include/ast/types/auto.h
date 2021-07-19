@@ -23,7 +23,7 @@ public:
 
     /**
      * Wrapper around constructor so that we can make it private. Don't use
-     * this, use the singleton `type::auto` instead.
+     * this, use the singleton `type::auto_` instead.
      */
     static Auto create(Meta m = Meta()) { return Auto(std::move(m)); }
 

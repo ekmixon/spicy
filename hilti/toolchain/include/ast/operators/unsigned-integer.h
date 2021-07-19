@@ -16,8 +16,8 @@ namespace operator_ {
 
 namespace detail {
 inline static auto widestTypeUnsigned() {
-    return [=](const node::range<Expression>& orig_ops,
-               const node::range<Expression>& resolved_ops) -> std::optional<Type> {
+    return [=](const hilti::node::range<Expression>& orig_ops,
+               const hilti::node::range<Expression>& resolved_ops) -> std::optional<Type> {
         if ( orig_ops.empty() && resolved_ops.empty() )
             return type::DocOnly("uint<*>");
 

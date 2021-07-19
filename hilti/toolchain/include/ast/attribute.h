@@ -182,7 +182,7 @@ public:
      * @return all attributes with matching name
      */
     auto findAll(std::string_view tag) const {
-        node::set<Attribute> result;
+        hilti::node::set<Attribute> result;
 
         for ( auto& a : attributes() )
             if ( a.tag() == tag )
@@ -293,7 +293,22 @@ public:
      * @param attrs set to inspect
      * @return all attributes with matching name
      */
-    static node::set<Attribute> findAll(const std::optional<const AttributeSet>& attrs, std::string_view tag) {
+    static hilti::node::set<Attribute> findAll(const std::optional<const AttributeSet>& attrs, std::string_view tag) {
+        if ( attrs )
+            return attrs->findAll(tag);
+        else
+            return {};
+    }
+
+    /**
+     * Retrieves all attribute with a given name from a set, dealing correctly
+     * with an unset optional set.
+     *
+     * @param attrs set to inspect
+     * @return all attributes with matching name
+     */
+    static hilti::node::set<Attribute> findAll(const hilti::optional_ref<const AttributeSet>& attrs,
+                                               std::string_view tag) {
         if ( attrs )
             return attrs->findAll(tag);
         else

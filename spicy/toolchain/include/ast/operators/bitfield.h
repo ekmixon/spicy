@@ -31,13 +31,13 @@ static hilti::expression::Member memberExpression(const Expression& op) {
 static inline void checkName(const Expression& op0, const Expression& op1, Node& n) {
     auto id = memberExpression(op1).id().local();
 
-    if ( auto f = op0.type().as<type::Bitfield>().bits(id); ! f )
+    if ( const auto& f = op0.type().as<type::Bitfield>().bits(id); ! f )
         n.addError(hilti::util::fmt("bitfield type does not have attribute '%s'", id));
 }
 
 static inline Type itemType(const Expression& op0, const Expression& op1) {
     if ( auto st = op0.type().tryAs<type::Bitfield>() ) {
-        if ( auto f = st->bits(memberExpression(op1).id().local()) )
+        if ( const auto& f = st->bits(memberExpression(op1).id().local()) )
             return f->type();
     }
 
@@ -47,7 +47,7 @@ static inline Type itemType(const Expression& op0, const Expression& op1) {
 } // namespace bitfield::detail
 
 BEGIN_OPERATOR_CUSTOM(bitfield, Member)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<field type>");
 

@@ -18,7 +18,15 @@ class isType : public isNode {};
 
 class Type;
 
+namespace declaration {
+class Parameter;
+}
+
 namespace type {
+
+namespace function {
+using Parameter = declaration::Parameter;
+}
 
 namespace trait {
 class isAllocable {};
@@ -33,6 +41,7 @@ class isRuntimeNonTrivial {};
 class isView {};
 class isViewable {};
 class supportsWildcard {};
+class takesArguments {};
 } // namespace trait
 
 using ResolvedState = std::set<uintptr_t>;
@@ -42,11 +51,14 @@ enum class Flag {
     /** Set to make the type `const`. */
     Constant = (1U << 0U),
 
+    /** Set to make the type `non-const`. */
+    NonConstant = (1U << 1U),
+
     /**
      * Marks the type as having a top-level scope that does not derive scope content
      * from other nodes above it in the AST (except for truely global IDs).
      */
-    NoInheritScope = (1U << 1U),
+    NoInheritScope = (1U << 2U),
 };
 
 /**
@@ -149,6 +161,7 @@ public:
 
     void setCxxID(ID id) { _state().cxx = std::move(id); }
     void setTypeID(ID id) { _state().id = std::move(id); }
+    void addFlag(type::Flag f) { _state().flags += f; }
 
     /** Implements the `Type` interface. */
     bool hasFlag(type::Flag f) const { return _state().flags.has(f); }
@@ -237,22 +250,6 @@ inline hilti::Type removeFlags(const Type& t, const type::Flags& flags) {
 }
 
 /**
- * Copies an existing type, marking the type as one that stores a
- * constant/non-constant value. This has only an effect for mutable types.
- * Non-mutable are always considered const. The default for for mutable *
- * types is non-const.
- *
- * @param t original type
- * @param const_ boolen indicating whether the new type should be const
- * @return new type with the constness changed as requested
- */
-inline hilti::Type setConstant(const Type& t, bool const_) {
-    auto x = Type(t);
-    x._state().flags.set(type::Flag::Constant, const_);
-    return x;
-}
-
-/**
  * Copies an existing type, setting its C++ ID as emitted by the code generator.
  *
  * @param t original type
@@ -332,6 +329,9 @@ inline bool isViewable(const Type& t) { return effectiveType(t)._isViewable(); }
 /** Returns true for HILTI types that are always to be placed on the heap. */
 inline bool isOnHeap(const Type& t) { return effectiveType(t)._isOnHeap(); }
 
+/** Returns true for HILTI types that may receive type arguments on instantiations. */
+inline bool takesArguments(const Type& t) { return effectiveType(t)._takesArguments(); }
+
 /**
  * Returns true if the type is marked constant.
  *
@@ -339,16 +339,47 @@ inline bool isOnHeap(const Type& t) { return effectiveType(t)._isOnHeap(); }
  * types. Ideally, this would always return true for non-mutable types, but
  * doing so breaks some coercion code currently.
  */
-inline bool isConstant(const Type& t) { return effectiveType(t).flags().has(type::Flag::Constant) || ! isMutable(t); }
+inline bool isConstant(const Type& t) {
+    return effectiveType(t).flags().has(type::Flag::Constant) ||
+           (! isMutable(t) && ! effectiveType(t).flags().has(type::Flag::NonConstant));
+}
 
-/** Returns a `const` version of a type. */
-inline auto constant(const Type& t) { return setConstant(t, true); }
+/** Returns a `const` version of a type. */ // TODO: Can we avoid copying here?
+inline auto constant(const Type& t) {
+    auto x = Type(t);
+    x._state().flags -= type::Flag::NonConstant;
+    x._state().flags += type::Flag::Constant;
+    return x;
+}
 
-/** Returns a not `const` version of a type. */
-inline auto nonConstant(const Type& t) { return setConstant(t, false); }
+/** Returns a not `const` version of a type. */ // TODO: Can we avoid copying here?
+// If force, then even immutable types are marked as non-const. This is usally not what one wants.
+inline auto nonConstant(const Type& t, bool force = false) {
+    auto x = Type(t);
+    x._state().flags -= type::Flag::Constant;
+
+    if ( force )
+        x._state().flags += type::Flag::NonConstant;
+
+    return x;
+}
 
 /** Sets the constness of type *t* to that of another type *from*. */
-inline auto transferConstness(const Type& t, const Type& from) { return setConstant(t, isConstant(from)); }
+inline auto transferConstness(const Type& t, const Type& from) { // TODO: Can we avoid copying here?
+    auto x = Type(t);
+
+    if ( from._state().flags.has(type::Flag::Constant) )
+        x._state().flags += type::Flag::Constant;
+    else
+        x._state().flags -= type::Flag::Constant;
+
+    if ( from._state().flags.has(type::Flag::NonConstant) )
+        x._state().flags += type::Flag::NonConstant;
+    else
+        x._state().flags -= type::Flag::NonConstant;
+
+    return x;
+}
 
 /**
  * Returns true if the type has been fully resolved, including all sub-types it

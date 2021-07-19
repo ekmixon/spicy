@@ -50,10 +50,10 @@ public:
           _kind(kind) {}
 
     Parameter(ID id, hilti::Type type, parameter::Kind kind, std::optional<hilti::Expression> default_,
-              bool is_struct_param, Meta m = Meta())
+              bool is_type_param, Meta m = Meta())
         : DeclarationBase(nodes(std::move(id), type::nonConstant(std::move(type)), std::move(default_)), std::move(m)),
           _kind(kind),
-          _is_struct_param(is_struct_param) {}
+          _is_type_param(is_type_param) {}
 
     Parameter() : DeclarationBase({node::none, type::unknown, node::none}, Meta()) {}
 
@@ -61,12 +61,12 @@ public:
     auto default_() const { return childs()[2].tryReferenceAs<hilti::Expression>(); }
 
     auto kind() const { return _kind; }
-    auto isStructParameter() const { return _is_struct_param; }
+    auto isTypeParameter() const { return _is_type_param; }
     auto isResolved(type::ResolvedState* rstate) const { return type::isResolved(type(), rstate); }
 
     void setDefault(hilti::Expression e) { childs()[2] = std::move(e); }
     void setType(hilti::Type t) { childs()[1] = node::makeAlias(std::move(t)); }
-    void setIsStructParameter() { _is_struct_param = true; }
+    void setIsTypeParameter() { _is_type_param = true; }
 
     bool operator==(const Parameter& other) const {
         return id() == other.id() && type() == other.type() && kind() == other.kind() && default_() == other.default_();
@@ -84,14 +84,12 @@ public:
     auto isEqual(const Declaration& other) const { return node::isEqual(this, other); }
 
     /** Implements `Node` interface. */
-    auto properties() const {
-        return node::Properties{{"kind", to_string(_kind)}, {"is_struct_param", _is_struct_param}};
-    }
+    auto properties() const { return node::Properties{{"kind", to_string(_kind)}, {"is_type_param", _is_type_param}}; }
 
 
 private:
     parameter::Kind _kind = parameter::Kind::Unknown;
-    bool _is_struct_param = false;
+    bool _is_type_param = false;
 };
 
 /** Returns true if two parameters are different only by name of their ID. */

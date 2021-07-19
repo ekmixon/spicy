@@ -64,7 +64,7 @@ void buildScopes(Node* root, Unit* unit);
 bool normalize(Node* root, Unit* unit);
 bool coerce(Node* root, Unit* unit);
 bool resolve(Node* root, Unit* unit);
-bool validate(Node* root);
+void validate(Node* root);
 } // namespace ast
 
 #if 0

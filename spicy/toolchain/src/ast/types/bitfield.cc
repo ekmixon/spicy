@@ -7,35 +7,18 @@
 
 using namespace spicy;
 
-Type type::bitfield::Bits::type() const {
-    if ( auto a = AttributeSet::find(attributes(), "&convert") )
-        return hilti::type::Computed(*a->valueAsExpression(), meta());
-
-    return hilti::type::UnsignedInteger(_field_width);
-}
-
-Type type::Bitfield::type() const {
-    std::vector<std::pair<ID, Type>> elems;
-
-    for ( const auto& b : bits() )
-        elems.emplace_back(b.id(), b.type());
-
-    return type::Tuple(std::move(elems), meta());
-}
-
-std::optional<int> type::Bitfield::bitsIndex(const ID& id) const {
-    for ( const auto&& [i, b] : hilti::util::enumerate(bits()) ) {
+hilti::optional_ref<const type::bitfield::Bits> type::Bitfield::bits(const ID& id) const {
+    for ( const auto& b : bits() ) {
         if ( id == b.id() )
-            return i;
+            return b;
     }
 
     return {};
 }
-
-std::optional<type::bitfield::Bits> type::Bitfield::bits(const ID& id) const {
-    for ( const auto& b : bits() ) {
+std::optional<int> type::Bitfield::bitsIndex(const ID& id) const {
+    for ( const auto&& [i, b] : hilti::util::enumerate(bits()) ) {
         if ( id == b.id() )
-            return b;
+            return i;
     }
 
     return {};

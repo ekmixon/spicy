@@ -36,6 +36,10 @@ class Type(hilti::trait::isType) : hilti::trait::isNode {
     /** Returns the type of elements the container stores. */
     const hilti::Type& elementType() const if hilti::type::trait::isIterable;
 
+    /** Returns any parameters they type expects. */
+    // TODO: Naming isn't great between typeParameters() and parameters(), need to clean up.
+    hilti::node::set<type::function::Parameter> parameters() const if hilti::type::trait::takesArguments;
+
     /** For internal use. Use ``type::isAllocable` instead. */
     trait _isAllocable() from hilti::type::trait::isAllocable;
 
@@ -68,6 +72,9 @@ class Type(hilti::trait::isType) : hilti::trait::isNode {
 
     /** For internal use. Use ``type::isOnHeap` instead. */
     trait _isOnHeap() from hilti::type::trait::isOnHeap;
+
+    /** For internal use. Use ``type::takesArguments` instead. */
+    trait _takesArguments() from hilti::type::trait::takesArguments;
 
     /** Implements the `Node` interface. */
     hilti::node::Properties properties() const;

@@ -18,7 +18,7 @@ STANDARD_OPERATOR_2(tuple, Unequal, type::Bool(), type::constant(type::Tuple(typ
                     operator_::sameTypeAs(0, "tuple<*>"), "Compares two tuples element-wise.");
 
 BEGIN_OPERATOR_CUSTOM(tuple, Index)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<type of element>");
 
@@ -65,7 +65,7 @@ BEGIN_OPERATOR_CUSTOM(tuple, Index)
 END_OPERATOR_CUSTOM
 
 BEGIN_OPERATOR_CUSTOM(tuple, Member)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<type of element>");
 

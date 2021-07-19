@@ -18,8 +18,8 @@ namespace declaration {
 /** AST node for a declaration of global variable. */
 class GlobalVariable : public DeclarationBase {
 public:
-    GlobalVariable(ID id, ::hilti::Type type, hilti::Expression init = {}, Linkage linkage = Linkage::Private,
-                   Meta m = Meta())
+    GlobalVariable(ID id, ::hilti::Type type, std::optional<hilti::Expression> init = {},
+                   Linkage linkage = Linkage::Private, Meta m = Meta())
         : DeclarationBase(nodes(std::move(id), std::move(type), std::move(init)), std::move(m)), _linkage(linkage) {}
 
     GlobalVariable(ID id, ::hilti::Type type, Linkage linkage = Linkage::Private, Meta m = Meta())

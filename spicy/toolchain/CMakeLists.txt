@@ -61,9 +61,8 @@ set(SOURCES_COMPILER
     src/compiler/driver.cc
     src/compiler/parser/driver.cc
     src/compiler/plugin.cc
-    src/compiler/visitors/apply-coercions.cc
-    src/compiler/visitors/coercer.cc
-    src/compiler/visitors/id-resolver.cc
+    src/compiler/visitors/normalizer.cc
+    src/compiler/visitors/resolver.cc
     src/compiler/visitors/printer.cc
     src/compiler/visitors/scope-builder.cc
     src/compiler/visitors/validator.cc

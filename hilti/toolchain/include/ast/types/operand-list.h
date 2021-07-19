@@ -39,7 +39,7 @@ public:
 
         for ( const auto& p : params ) {
             operator_::Operand op = {.id = p.id(),
-                                     .type = type::setConstant(p.type(), p.isConstant()),
+                                     .type = (p.isConstant() ? type::constant(p.type()) : p.type()),
                                      .optional = p.default_().has_value(),
                                      .default_ = p.default_()};
 

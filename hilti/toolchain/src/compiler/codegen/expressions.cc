@@ -172,7 +172,7 @@ struct Visitor : hilti::visitor::PreOrder<std::string, Visitor> {
             }
         }
 
-        if ( auto p = n.declaration().tryAs<declaration::Parameter>(); p && p->isStructParameter() ) {
+        if ( auto p = n.declaration().tryAs<declaration::Parameter>(); p && p->isTypeParameter() ) {
             // Need to adjust here for potential automatic change to a weak reference.
             if ( type::isReferenceType(p->type()) )
                 return cxx::Expression(fmt("%s->__p_%s.derefAsValue()", cg->self(), p->id()));

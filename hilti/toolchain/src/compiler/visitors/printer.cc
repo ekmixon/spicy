@@ -1062,10 +1062,10 @@ void hilti::detail::printAST(const Node& root, printer::Stream& stream) {
     }
 
     for ( auto& p : plugin::registry().plugins() ) {
-        if ( ! p.print_ast )
+        if ( ! p.ast_print )
             continue;
 
-        if ( (*p.print_ast)(root, stream) )
+        if ( (*p.ast_print)(root, stream) )
             return;
     }
 

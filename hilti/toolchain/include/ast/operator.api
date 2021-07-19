@@ -48,7 +48,7 @@ class Operator(trait::isOperator) {
      * @return type when evaluated
      *
      */
-    Type result(const node::range<Expression>& ops) const;
+    Type result(const hilti::node::range<Expression>& ops) const;
 
     /** True if operator's result can be assigned to. */
     bool isLhs() const;

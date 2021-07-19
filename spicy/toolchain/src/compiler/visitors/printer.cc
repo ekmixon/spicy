@@ -34,18 +34,21 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
 
     void operator()(const type::Bitfield& n, position_t /* p */) {
         if ( ! out.isExpandSubsequentType() ) {
-            if ( auto id = n.typeID() ) {
-                out << *id;
-                return;
-            }
+            /*
+             * if ( auto id = n.typeID() ) {
+             *     out << *id;
+             *     return;
+             * }
+             */ // FIXME
         }
 
         out.setExpandSubsequentType(false);
 
         out << const_(n) << fmt("bitfield(%d) {\n", n.width());
 
-        for ( const auto& f : n.bits() )
-            out << f;
+        // TODO: Crahses in operator devbug output.
+        //        for ( const auto& f : n.bits() )
+        //            out << f;
 
         out << "}";
     }
@@ -65,7 +68,7 @@ struct Visitor : hilti::visitor::PreOrder<void, Visitor> {
 
 } // anonymous namespace
 
-bool detail::printAST(const hilti::Node& root, hilti::printer::Stream& out) {
+bool spicy::detail::ast::print(const hilti::Node& root, hilti::printer::Stream& out) {
     hilti::util::timing::Collector _("spicy/printer");
 
     return Visitor(out).dispatch(root);

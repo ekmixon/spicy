@@ -17,6 +17,20 @@ Result<Plugin> PluginRegistry::pluginForExtension(hilti::rt::filesystem::path ex
     return result::Error(util::fmt("no plugin registered for extension %s", ext));
 }
 
+const Plugin& PluginRegistry::hiltiPlugin() const {
+    static const Plugin* hilti_plugin = nullptr;
+
+    if ( ! hilti_plugin ) {
+        auto p = std::find_if(_plugins.begin(), _plugins.end(), [&](auto& p) { return p.component == "HILTI"; });
+        if ( p == _plugins.end() )
+            logger().fatalError("cannot retrieve HILTI plugin");
+
+        hilti_plugin = &*p;
+    }
+
+    return *hilti_plugin;
+}
+
 PluginRegistry& plugin::registry() {
     static PluginRegistry singleton;
     return singleton;
@@ -56,7 +70,7 @@ static Plugin hilti_plugin() {
 
         .ast_coerce = [](const std::shared_ptr<hilti::Context>& ctx, Node* m, Unit* u) { return ast::coerce(m, u); },
 
-        .ast_validate = [](const std::shared_ptr<hilti::Context>& ctx, Node* m, Unit* u) { return ast::validate(m); },
+        .ast_validate = [](const std::shared_ptr<hilti::Context>& ctx, Node* m, Unit* u) { ast::validate(m); },
 
         .transform = {},
     };

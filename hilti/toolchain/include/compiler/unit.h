@@ -316,13 +316,14 @@ private:
     // Updates the requires_compilation flags for all of a module's imports.
     void _determineCompilationRequirements(const Node& module);
     // Sends a debug dump of a module's AST to the global logger.
-    void _dumpAST(const Node& module, const logging::DebugStream& stream, const std::string& prefix, int round = 0);
+    void _dumpAST(const Plugin& p, const Node& module, const logging::DebugStream& stream, const std::string& prefix,
+                  int round = 0);
     // Sends a debug dump of all modules parsed so far to the global logger.
-    void _dumpASTs(const logging::DebugStream& stream, const std::string& prefix, int round = 0);
+    void _dumpASTs(const Plugin& p, const logging::DebugStream& stream, const std::string& prefix, int round = 0);
     // Sends a debug dump of a module's AST to an output stream.
-    void _dumpAST(const Node& module, std::ostream& stream, const std::string& prefix, int round = 0);
+    void _dumpAST(const Plugin& p, const Node& module, std::ostream& stream, const std::string& prefix, int round = 0);
     // Sends a debug dump of all modules parsed so far to an output stream.
-    void _dumpASTs(std::ostream& stream, const std::string& prefix, int round = 0);
+    void _dumpASTs(const Plugin& p, std::ostream& stream, const std::string& prefix, int round = 0);
     // Records a debug dump of all modules parsed so far to disk.
     void _saveIterationASTs(const Plugin& p, const std::string& prefix, int round = 0);
     // Clear any previously computed AST state before beginning a pass over the AST.

@@ -36,7 +36,7 @@ public:
     }
 
     // Unit field interface
-    Type itemType() const { return type::effectiveType(child<Type>(1)); }
+    const Type& itemType() const { return child<Type>(1); }
     auto isEqual(const Item& other) const { return node::isEqual(this, other); }
 
     // Node interface.

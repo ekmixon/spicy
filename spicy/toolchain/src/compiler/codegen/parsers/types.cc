@@ -81,7 +81,7 @@ struct Visitor : public hilti::visitor::PreOrder<Expression, Visitor> {
         std::optional<Expression> byte_order;
 
         if ( const auto& a = AttributeSet::find(meta.field()->attributes(), "&byte-order") )
-            byte_order = *a->valueAs<spicy::Expression>();
+            byte_order = *a->valueAsExpression();
 
         else if ( const auto& a = AttributeSet::find(state().unit.get().attributes(), "&byte-order") )
             byte_order = *a->valueAsExpression();
@@ -90,7 +90,7 @@ struct Visitor : public hilti::visitor::PreOrder<Expression, Visitor> {
             byte_order = *p->expression();
 
         if ( byte_order )
-            return builder::expect_type(std::move(*byte_order), builder::typeByID("spicy::ByteOrder"));
+            return std::move(*byte_order);
         else
             return builder::id("hilti::ByteOrder::Network");
     }
@@ -125,7 +125,7 @@ struct Visitor : public hilti::visitor::PreOrder<Expression, Visitor> {
             auto bit_order = builder::id("spicy_rt::BitOrder::LSB0");
 
             if ( const auto& a = AttributeSet::find(meta.field()->attributes(), "&bit-order") )
-                bit_order = *a->valueAs<spicy::Expression>();
+                bit_order = *a->valueAsExpression();
             else if ( const auto& p = state().unit.get().propertyItem("%bit-order") )
                 bit_order = *p->expression();
 

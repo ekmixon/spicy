@@ -18,6 +18,7 @@ public:
 
     /** Implements the `Type` interface. */
     auto isEqual(const Type& other) const { return node::isEqual(this, other); }
+    auto _isResolved(ResolvedState* rstate) const { return false; /* TODO */ }
     /** Implements the `Node` interface. */
     auto properties() const { return node::Properties{}; }
 };

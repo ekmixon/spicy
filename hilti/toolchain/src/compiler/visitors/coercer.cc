@@ -230,9 +230,9 @@ struct Visitor : public visitor::PreOrder<void, Visitor> {
         if ( auto vr = t.tryAs<type::ValueReference>() )
             t = vr->dereferencedType();
 
-        if ( auto stype = t.tryAs<type::Struct>() ) {
+        if ( type::takesArguments(t) ) {
             if ( auto x = n.typeArguments(); x.size() ) {
-                if ( auto coerced = coerceCallArguments(x, stype->parameters()); coerced && *coerced ) {
+                if ( auto coerced = coerceCallArguments(x, t.parameters()); coerced && *coerced ) {
                     logChange(p.node, ctor::Tuple(**coerced), "call arguments");
                     p.node.as<ctor::Default>().setTypeArguments(std::move(**coerced));
                     modified = true;
@@ -268,8 +268,8 @@ struct Visitor : public visitor::PreOrder<void, Visitor> {
                 init = std::move(*x);
         }
 
-        if ( auto stype = n.type().tryAs<type::Struct>(); stype && n.typeArguments().size() ) {
-            auto coerced = coerceCallArguments(n.typeArguments(), stype->parameters());
+        if ( type::takesArguments(n.type()) && n.typeArguments().size() ) {
+            auto coerced = coerceCallArguments(n.typeArguments(), n.type().parameters());
             if ( coerced && *coerced )
                 args = std::move(*coerced);
         }
@@ -298,8 +298,8 @@ struct Visitor : public visitor::PreOrder<void, Visitor> {
                 init = std::move(*x);
         }
 
-        if ( auto stype = n.type().tryAs<type::Struct>(); stype && n.typeArguments().size() ) {
-            auto coerced = coerceCallArguments(n.typeArguments(), stype->parameters());
+        if ( type::takesArguments(n.type()) && n.typeArguments().size() ) {
+            auto coerced = coerceCallArguments(n.typeArguments(), n.type().parameters());
             if ( coerced && *coerced )
                 args = std::move(*coerced);
         }
@@ -324,9 +324,9 @@ struct Visitor : public visitor::PreOrder<void, Visitor> {
         if ( ! etype )
             return;
 
-        if ( auto stype = etype->typeValue().tryAs<type::Struct>() ) {
+        if ( type::takesArguments(etype->typeValue()) ) {
             auto args = n.op1().as<expression::Ctor>().ctor().as<ctor::Tuple>().value();
-            if ( auto coerced = coerceCallArguments(args, stype->parameters()); coerced && *coerced ) {
+            if ( auto coerced = coerceCallArguments(args, etype->typeValue().parameters()); coerced && *coerced ) {
                 Expression ntuple = expression::Ctor(ctor::Tuple(**coerced), n.op1().meta());
                 logChange(p.node, ntuple, "type arguments");
                 p.node.as<operator_::generic::New>().setOp1(std::move(ntuple));
@@ -468,6 +468,23 @@ struct Visitor : public visitor::PreOrder<void, Visitor> {
             p.node.as<expression::LogicalOr>().setOp1(std::move(*x));
             modified = true;
         }
+    }
+
+    void operator()(const expression::PendingCoerced& pc, position_t p) {
+        if ( auto ner = hilti::coerceExpression(pc.expression(), pc.type()); ner.coerced ) {
+            if ( ner.nexpr ) {
+                // A coercion expression was created, use it.
+                p.node = *ner.nexpr;
+                modified = true;
+            }
+            else {
+                // Coercion not needed, use original expression.
+                p.node = pc.expression();
+                modified = true;
+            }
+        }
+        else
+            p.node.addError(fmt("cannot coerce expression '%s' to type '%s'", pc.expression(), pc.type()));
     }
 };
 

@@ -18,7 +18,8 @@ namespace declaration {
 /** AST node for a declaration of a local variable. */
 class LocalVariable : public DeclarationBase {
 public:
-    LocalVariable(ID id, ::hilti::Type type, hilti::Expression init, bool const_ = false, Meta m = Meta())
+    LocalVariable(ID id, ::hilti::Type type, std::optional<hilti::Expression> init, bool const_ = false,
+                  Meta m = Meta())
         : DeclarationBase(nodes(std::move(id), std::move(type), std::move(init)), std::move(m)), _const(const_) {}
 
     LocalVariable(ID id, ::hilti::Type type, bool const_ = false, Meta m = Meta())

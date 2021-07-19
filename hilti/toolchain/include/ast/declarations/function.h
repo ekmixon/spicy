@@ -29,6 +29,7 @@ public:
             return {};
     }
 
+    void setFunction(::hilti::Function f) { childs()[0] = std::move(f); }
     void setLinkage(Linkage x) { _linkage = x; }
     void setParentRef(NodeRef p) { _parent_type = std::move(p); }
 

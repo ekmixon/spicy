@@ -92,6 +92,8 @@ public:
     auto hooks() const { return childs<Hook>(_sinks_end, -1); }
     Engine engine() const { return _engine; }
 
+    void setIndex(uint64_t index) { _index = index; }
+
     bool operator==(const UnresolvedField& other) const {
         return _engine == other._engine && unresolvedID() == other.unresolvedID() && fieldID() == other.fieldID() &&
                attributes() == other.attributes() && arguments() == other.arguments() && sinks() == other.sinks() &&
@@ -99,24 +101,11 @@ public:
     }
 
     // Unit item interface
-    Type itemType() const { return hilti::type::unknown; }
+    const Type& itemType() const { return hilti::type::unknown; }
     auto isEqual(const Item& other) const { return node::isEqual(this, other); }
 
     // Node interface.
     auto properties() const { return node::Properties{{"engine", to_string(_engine)}}; }
-
-    /**
-     * Copies an existing field but changes it unit index.
-     *
-     * @param unit original field
-     * @param index the new index of the field
-     * @return new Field with unit index set as requested
-     */
-    static UnresolvedField setIndex(const UnresolvedField& f, uint64_t index) {
-        auto x = Item(f)._clone().as<UnresolvedField>();
-        x._index = index;
-        return x;
-    }
 
 private:
     Engine _engine;

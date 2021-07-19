@@ -20,7 +20,7 @@
 [debug/compiler]       coercing nodes in module Foo
 [debug/compiler]       resolving nodes in module Foo
 [debug/compiler]     validating module Foo
-[debug/ast-final] # Foo: Final AST
+[debug/ast-final] # [HILTI] Foo: Final AST
 [debug/ast-final]   - Module %1 (basic-module.hlt:5:1-11:2) [@m:XXX]
 [debug/ast-final]       | Foo -> declaration::Module %6 <id="Foo"> [canon-id: Foo] [@d:XXX] ([@d:XXX])
 [debug/ast-final]       | X -> declaration::Type %2 <linkage="private"> [canon-id: Foo::X] (resolved) [@d:XXX] ([@d:XXX])
@@ -32,14 +32,14 @@
 [debug/ast-final]       - type::Bool (basic-module.hlt:7:10) (const) (type-id: Foo::X) (resolved) [@t:XXX]
 [debug/ast-final]       - node::None (basic-module.hlt:5:13-7:15) [@n:XXX]
 [debug/ast-final]     - declaration::Function %3 <linkage="private" parent_type="%???"> (basic-module.hlt:9:1) [canon-id: Foo::foo] [@d:XXX]
-[debug/ast-final]         | bar -> declaration::Parameter %4 <is_struct_param="false" kind="in"> [canon-id: Foo::foo::bar] [@d:XXX] ([@d:XXX])
+[debug/ast-final]         | bar -> declaration::Parameter %4 <is_type_param="false" kind="in"> [canon-id: Foo::foo::bar] [@d:XXX] ([@d:XXX])
 [debug/ast-final]       - Function <cc="<standard>"> (basic-module.hlt:9:8) [@f:XXX]
 [debug/ast-final]         - ID <name="foo"> (basic-module.hlt:9:16) [@i:XXX]
 [debug/ast-final]         - type::Function <flavor="standard"> (basic-module.hlt:9:8) (const) (resolved) [@t:XXX]
 [debug/ast-final]           - type::function::Result (basic-module.hlt:9:9) [@t:XXX]
 [debug/ast-final]             - type::String (basic-module.hlt:9:9) (const) (resolved) [@t:XXX]
 [debug/ast-final]           - node::None (basic-module.hlt:9:8) [@n:XXX]
-[debug/ast-final]           - declaration::Parameter %4 <is_struct_param="false" kind="in"> (basic-module.hlt:9:20) [canon-id: Foo::foo::bar] [@d:XXX]
+[debug/ast-final]           - declaration::Parameter %4 <is_type_param="false" kind="in"> (basic-module.hlt:9:20) [canon-id: Foo::foo::bar] [@d:XXX]
 [debug/ast-final]             - ID <name="bar"> (basic-module.hlt:9:25) [@i:XXX]
 [debug/ast-final]             - type::Real (basic-module.hlt:9:20) (const) (resolved) [@t:XXX]
 [debug/ast-final]             - node::None (basic-module.hlt:9:20) [@n:XXX]

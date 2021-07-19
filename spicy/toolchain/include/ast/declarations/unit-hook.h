@@ -15,31 +15,24 @@ namespace spicy {
 namespace declaration {
 
 /** AST node for a declaration of an external (i.e., module-level) unit hook. */
-class UnitHook : public hilti::NodeBase, public hilti::trait::isDeclaration {
+class UnitHook : public hilti::DeclarationBase {
 public:
     UnitHook(ID id, Type unit, const type::unit::Item& hook, Meta m = Meta())
-        : NodeBase(hilti::nodes(std::move(id), std::move(unit), hook), std::move(m)) {
+        : DeclarationBase(hilti::nodes(std::move(id), std::move(unit), hook), std::move(m)) {
         if ( ! hook.isA<type::unit::item::UnitHook>() )
             hilti::logger().internalError("non-unit hook passed into declaration::UnitHook");
     }
 
-    std::optional<type::Unit> unitType() const {
-        Type t = type::effectiveType(childs()[1].as<Type>());
+    const auto& unitHook() const { return child<type::unit::item::UnitHook>(2); }
 
-        if ( auto x = t.tryAs<hilti::type::ValueReference>() )
-            t = x->dereferencedType();
-
-        if ( t.isA<type::Unit>() )
-            return t.as<type::Unit>();
-
-        if ( t.isA<type::Struct>() )
-            return t.originalNode()->as<type::Unit>();
-
-        // Not resolved yet.
-        return {};
+    hilti::optional_ref<const spicy::type::Unit> unitType() const {
+        if ( _unit_type )
+            return _unit_type->as<hilti::declaration::Type>().type().as<spicy::type::Unit>();
+        else
+            return {};
     }
 
-    const auto& unitHook() const { return child<type::unit::item::UnitHook>(2); }
+    void setUnitTypeRef(NodeRef p) { _unit_type = std::move(p); }
 
     bool operator==(const UnitHook& other) const {
         return unitType() == other.unitType() && unitHook() == other.unitHook();
@@ -58,6 +51,9 @@ public:
 
     /** Implements `Node` interface. */
     auto properties() const { return node::Properties{}; }
+
+private:
+    NodeRef _unit_type;
 };
 
 } // namespace declaration

@@ -8,7 +8,7 @@
 
 using namespace spicy;
 
-std::optional<type::unit::Item> type::Unit::field(const ID& id) const {
+hilti::optional_ref<const type::unit::item::Field> type::Unit::field(const ID& id) const {
     for ( const auto& f : hilti::node::flattenedChilds<type::unit::item::Field>(*this) ) {
         if ( f.id() == id )
             return f;
@@ -21,11 +21,11 @@ struct AssignFieldIndicesVisitor : public hilti::visitor::PreOrder<void, AssignF
     AssignFieldIndicesVisitor(uint64_t next_index) : next_index(next_index) {}
 
     result_t operator()(const type::unit::item::Field& n, position_t p) {
-        p.node = type::unit::Item(type::unit::item::Field::setIndex(n, next_index++));
+        p.node.as<type::unit::item::Field>().setIndex(next_index++);
     }
 
     result_t operator()(const type::unit::item::UnresolvedField& n, position_t p) {
-        p.node = type::unit::Item(type::unit::item::UnresolvedField::setIndex(n, next_index++));
+        p.node.as<type::unit::item::UnresolvedField>().setIndex(next_index++);
     }
 
     uint64_t next_index;

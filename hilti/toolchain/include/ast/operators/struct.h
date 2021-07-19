@@ -51,7 +51,7 @@ static inline Type itemType(const Expression& op0, const Expression& op1) {
 } // namespace struct_::detail
 
 BEGIN_OPERATOR_CUSTOM(struct_, Unset)
-    Type result(const node::range<Expression>& ops) const { return type::Void(); }
+    Type result(const hilti::node::range<Expression>& ops) const { return type::Void(); }
 
     bool isLhs() const { return true; }
 
@@ -72,11 +72,11 @@ Clears an optional field.
 END_OPERATOR_CUSTOM_x
 
 BEGIN_OPERATOR_CUSTOM_x(struct_, MemberNonConst, Member)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<field type>");
 
-        return detail::itemType(ops[0], ops[1]);
+        return type::nonConstant(detail::itemType(ops[0], ops[1]), true);
     }
 
     bool isLhs() const { return true; }
@@ -100,11 +100,11 @@ triggers an exception.
 END_OPERATOR_CUSTOM_x
 
 BEGIN_OPERATOR_CUSTOM_x(struct_, MemberConst, Member)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<field type>");
 
-        return detail::itemType(ops[0], ops[1]);
+        return type::constant(detail::itemType(ops[0], ops[1]));
     }
 
     bool isLhs() const { return false; }
@@ -128,7 +128,7 @@ triggers an exception.
 END_OPERATOR_CUSTOM_x
 
 BEGIN_OPERATOR_CUSTOM(struct_, TryMember)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<field type>");
 
@@ -159,7 +159,7 @@ exception differently).
 END_OPERATOR_CUSTOM
 
 BEGIN_OPERATOR_CUSTOM(struct_, HasMember)
-    Type result(const node::range<Expression>& /* ops */) const { return type::Bool(); }
+    Type result(const hilti::node::range<Expression>& /* ops */) const { return type::Bool(); }
 
     bool isLhs() const { return false; }
 
@@ -198,7 +198,7 @@ public:
 
         static operator_::Kind kind() { return operator_::Kind::MemberCall; }
         std::vector<operator_::Operand> operands() const { return _operands; }
-        Type result(const node::range<Expression>& /* ops */) const { return _result; }
+        Type result(const hilti::node::range<Expression>& /* ops */) const { return _result; }
         bool isLhs() const { return false; }
         void validate(const expression::ResolvedOperator& /* i */, operator_::position_t p) const {}
         std::string doc() const { return "<dynamic - no doc>"; }

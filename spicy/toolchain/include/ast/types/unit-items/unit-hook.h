@@ -22,7 +22,7 @@ public:
     bool operator==(const UnitHook& other) const { return id() == other.id() && hook() == other.hook(); }
 
     // Unit field interface
-    Type itemType() const { return hook().type(); }
+    const Type& itemType() const { return hook().type(); }
     auto isEqual(const Item& other) const { return node::isEqual(this, other); }
 
     // Node interface.

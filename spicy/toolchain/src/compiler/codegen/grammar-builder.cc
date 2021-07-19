@@ -24,16 +24,16 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
     codegen::GrammarBuilder* gb;
     Grammar* grammar;
 
-    using CurrentField = std::pair<const spicy::type::unit::item::Field&, std::reference_wrapper<hilti::Node>&>;
+    using CurrentField = std::pair<const spicy::type::unit::item::Field&, std::reference_wrapper<const hilti::Node>&>;
     std::vector<CurrentField> fields;
     hilti::util::Cache<std::string, Production> cache;
 
-    auto currentField() { return fields.back(); }
+    const auto& currentField() { return fields.back(); }
     void pushField(CurrentField f) { fields.emplace_back(f); }
     void popField() { fields.pop_back(); }
     bool haveField() { return ! fields.empty(); }
 
-    std::optional<Production> productionForItem(std::reference_wrapper<hilti::Node> node) {
+    std::optional<Production> productionForItem(std::reference_wrapper<const hilti::Node> node) {
         auto field = node.get().tryAs<spicy::type::unit::item::Field>();
         if ( field )
             pushField({*field, node});
@@ -60,7 +60,7 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
 
     Production productionForLoop(Production sub, position_t p) {
         const auto& loc = p.node.location();
-        auto& field = currentField().first;
+        const auto& field = currentField().first;
         auto id = cg->uniquer()->get(field.id());
         auto eod = AttributeSet::find(field.attributes(), "&eod");
         auto count = AttributeSet::find(field.attributes(), "&count");
@@ -113,7 +113,7 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
     Production operator()(const spicy::type::unit::item::Field& n, position_t p) {
         Production prod;
 
-        if ( auto c = n.ctor() ) {
+        if ( const auto& c = n.ctor() ) {
             prod = productionForCtor(*c, n.id());
 
             if ( n.isContainer() )
@@ -128,7 +128,8 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
             else {
                 if ( sub->meta().field() ) {
                     auto field = sub->meta().fieldRef();
-                    *field = type::unit::item::Field::setForwarding(field->as<spicy::type::unit::item::Field>(), true);
+                    const_cast<type::unit::item::Field&>(field->as<type::unit::item::Field>())
+                        .setForwarding(true); // TODO: Can we do this without const_cast?
                 }
 
                 prod = production::Enclosure(cg->uniquer()->get(n.id()), *sub);
@@ -145,10 +146,10 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
     }
 
     Production operator()(const spicy::type::unit::item::Switch& n, position_t p) {
-        auto productionForCase = [this](Node& c, const std::string& label) {
+        auto productionForCase = [this](const Node& c, const std::string& label) {
             std::vector<Production> prods;
 
-            for ( auto&& n : c.as<spicy::type::unit::item::switch_::Case>().itemNodes() ) {
+            for ( const auto& n : c.as<spicy::type::unit::item::switch_::Case>().itemNodes() ) {
                 if ( auto prod = productionForItem(n) )
                     prods.push_back(*prod);
             }
@@ -165,13 +166,13 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
             int i = 0;
 
             for ( auto&& n : p.node.as<spicy::type::unit::item::Switch>().casesNodes() ) {
-                auto c = n.get().as<spicy::type::unit::item::switch_::Case>();
+                const auto& c = n.as<spicy::type::unit::item::switch_::Case>();
 
                 if ( c.isDefault() )
                     default_ = productionForCase(n, fmt("%s_default", switch_sym));
                 else {
                     auto prod = productionForCase(n, fmt("%s_case_%d", switch_sym, ++i));
-                    cases.emplace_back(c.expressions(), std::move(prod));
+                    cases.emplace_back(c.expressions().copy(), std::move(prod));
                 }
             }
 
@@ -190,8 +191,8 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
             int i = 0;
             auto d = production::look_ahead::Default::None;
 
-            for ( auto&& n : p.node.as<spicy::type::unit::item::Switch>().casesNodes() ) {
-                auto c = n.get().as<spicy::type::unit::item::switch_::Case>();
+            for ( const auto& n : p.node.as<spicy::type::unit::item::Switch>().casesNodes() ) {
+                const auto& c = n.as<spicy::type::unit::item::switch_::Case>();
 
                 Production prod;
 
@@ -225,23 +226,23 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
 
     Production operator()(const type::Unit& n, position_t p) {
         auto prod = cache.getOrCreate(
-            *n.typeID(), []() { return production::Unresolved(); },
+            *n.id(), []() { return production::Unresolved(); },
             [&](auto& unresolved) {
-                auto id = cg->uniquer()->get(*n.typeID());
+                auto id = cg->uniquer()->get(*n.id());
 
                 std::vector<Production> items;
 
-                for ( auto n : p.node.as<type::Unit>().nodesOfType<spicy::type::unit::Item>() ) {
+                for ( const auto& n : p.node.as<type::Unit>().nodesOfType<spicy::type::unit::Item>() ) {
                     if ( auto p = productionForItem(n) )
                         items.push_back(*p);
                 }
 
-                std::vector<Expression> args;
+                hilti::node::range<Expression> args;
 
                 if ( haveField() )
                     args = currentField().first.arguments();
 
-                auto unit = production::Unit(id, n, std::move(args), std::move(items), n.meta().location());
+                auto unit = production::Unit(id, n, args.copy<Expression>(), std::move(items), n.meta().location());
                 grammar->resolve(&unresolved.template as<production::Unresolved>(), std::move(unit));
                 return unresolved;
             });
@@ -251,13 +252,6 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
         // TODO(robin): Rename _setMetaInstance(), or give it clearMeta() or such.
         prod._setMetaInstance(std::make_shared<production::Meta>());
         return prod;
-    }
-
-    Production operator()(const type::ResolvedID& n) {
-        auto t = (*n.ref()).as<hilti::declaration::Type>().type();
-        auto x = dispatch(t);
-        assert(x);
-        return *x;
     }
 
     Production operator()(const type::Struct& n, position_t /* p */) {
@@ -283,8 +277,8 @@ struct Visitor : public hilti::visitor::PreOrder<Production, Visitor> {
 } // anonymous namespace
 
 Result<Nothing> GrammarBuilder::run(const type::Unit& unit, Node* node, CodeGen* cg) {
-    assert(unit.typeID());
-    auto id = *unit.typeID();
+    assert(unit.id());
+    const auto& id = *unit.id();
     Grammar g(id, node->location());
     auto v = Visitor(cg, this, &g);
 
@@ -306,9 +300,9 @@ Result<Nothing> GrammarBuilder::run(const type::Unit& unit, Node* node, CodeGen*
 }
 
 const Grammar& GrammarBuilder::grammar(const type::Unit& unit) {
-    if ( _grammars.find(*unit.typeID()) == _grammars.end() )
-        hilti::logger().internalError(fmt("grammar for unit %s accessed before it's been computed", *unit.typeID()),
+    if ( _grammars.find(*unit.id()) == _grammars.end() )
+        hilti::logger().internalError(fmt("grammar for unit %s accessed before it's been computed", *unit.id()),
                                       unit.meta().location());
 
-    return _grammars[*unit.typeID()];
+    return _grammars[*unit.id()];
 }

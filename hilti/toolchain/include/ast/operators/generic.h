@@ -19,7 +19,7 @@ namespace hilti {
 namespace operator_ {
 
 BEGIN_OPERATOR_CUSTOM(generic, Unpack)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<unpackable>");
 
@@ -44,7 +44,7 @@ BEGIN_OPERATOR_CUSTOM(generic, Unpack)
 END_OPERATOR_CUSTOM
 
 BEGIN_OPERATOR_CUSTOM(generic, Begin)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<iterator>");
 
@@ -68,7 +68,7 @@ BEGIN_OPERATOR_CUSTOM(generic, Begin)
 END_OPERATOR_CUSTOM
 
 BEGIN_OPERATOR_CUSTOM(generic, End)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("<iterator>");
 
@@ -92,7 +92,7 @@ BEGIN_OPERATOR_CUSTOM(generic, End)
 END_OPERATOR_CUSTOM
 
 BEGIN_OPERATOR_CUSTOM(generic, New)
-    Type result(const node::range<Expression>& ops) const {
+    Type result(const hilti::node::range<Expression>& ops) const {
         if ( ops.empty() )
             return type::DocOnly("strong_ref<T>");
 
@@ -150,7 +150,9 @@ public:
 
         static operator_::Kind kind() { return operator_::Kind::Cast; }
         std::vector<operator_::Operand> operands() const { return {}; } // Won't participate in overload resolution
-        Type result(const node::range<Expression>& ops) const { return ops[1].as<expression::Type_>().typeValue(); }
+        Type result(const hilti::node::range<Expression>& ops) const {
+            return ops[1].as<expression::Type_>().typeValue();
+        }
         bool isLhs() const { return false; }
         void validate(const expression::ResolvedOperator& /* i */, operator_::position_t /* p */) const {}
         std::string doc() const { return "<dynamic - no doc>"; }

@@ -16,7 +16,7 @@
 [debug/compiler]       resetting nodes for module Foo
 [debug/compiler]       building scopes for all modules
 [debug/compiler]       building scopes for all modules
-[debug/ast-scopes] # Bar: ASTs with scopes (round 1)
+[debug/ast-scopes] # [HILTI] Bar: ASTs with scopes (round 1)
 [debug/ast-scopes]   - Module %8 (bar.hlt:2:1-11:2) [@m:XXX]
 [debug/ast-scopes]       | Bar -> declaration::Module %9 <id="Bar"> [canon-id: not set] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       | Bar1 -> declaration::Type %3 <linkage="public"> [canon-id: not set] (resolved) [@d:XXX] ([@d:XXX])
@@ -42,27 +42,27 @@
 [debug/ast-scopes]         - ID <name="Foo::Foo1"> (bar.hlt:7:20) [@i:XXX]
 [debug/ast-scopes]       - node::None (foo.hlt:6:1) [@n:XXX]
 [debug/ast-scopes]     - declaration::Function %5 <linkage="private" parent_type="%???"> (bar.hlt:9:1) [canon-id: not set] [@d:XXX]
-[debug/ast-scopes]         | bar -> declaration::Parameter %6 <is_struct_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
-[debug/ast-scopes]         | foo -> declaration::Parameter %7 <is_struct_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | bar -> declaration::Parameter %6 <is_type_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | foo -> declaration::Parameter %7 <is_type_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       - Function <cc="<standard>"> (bar.hlt:9:8) [@f:XXX]
 [debug/ast-scopes]         - ID <name="bar"> (bar.hlt:9:16) [@i:XXX]
 [debug/ast-scopes]         - type::Function <flavor="standard"> (bar.hlt:9:8) (const) (not resolved) [@t:XXX]
 [debug/ast-scopes]           - type::function::Result (bar.hlt:9:9) [@t:XXX]
 [debug/ast-scopes]             - type::String (bar.hlt:9:9) (const) (resolved) [@t:XXX]
 [debug/ast-scopes]           - node::None (foo.hlt:9:8) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %6 <is_struct_param="false" kind="in"> (bar.hlt:9:20) [canon-id: not set] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %6 <is_type_param="false" kind="in"> (bar.hlt:9:20) [canon-id: not set] [@d:XXX]
 [debug/ast-scopes]             - ID <name="bar"> (bar.hlt:9:25) [@i:XXX]
 [debug/ast-scopes]             - type::UnresolvedID (bar.hlt:9:20) (const) (not resolved) [@t:XXX]
 [debug/ast-scopes]               - ID <name="Bar1"> (bar.hlt:9:20) [@i:XXX]
 [debug/ast-scopes]             - node::None (foo.hlt:9:20) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %7 <is_struct_param="false" kind="in"> (bar.hlt:9:29) [canon-id: not set] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %7 <is_type_param="false" kind="in"> (bar.hlt:9:29) [canon-id: not set] [@d:XXX]
 [debug/ast-scopes]             - ID <name="foo"> (bar.hlt:9:40) [@i:XXX]
 [debug/ast-scopes]             - type::UnresolvedID (bar.hlt:9:29) (const) (not resolved) [@t:XXX]
 [debug/ast-scopes]               - ID <name="Foo::Foo1"> (bar.hlt:9:30) [@i:XXX]
 [debug/ast-scopes]             - node::None (foo.hlt:9:20) [@n:XXX]
 [debug/ast-scopes]         - node::None (foo.hlt:9:8) [@n:XXX]
 [debug/ast-scopes]         - node::None (foo.hlt:6:1) [@n:XXX]
-[debug/ast-scopes] # Foo: ASTs with scopes (round 1)
+[debug/ast-scopes] # [HILTI] Foo: ASTs with scopes (round 1)
 [debug/ast-scopes]   - Module %1 (foo.hlt:2:1-11:2) [@m:XXX]
 [debug/ast-scopes]       | Bar -> declaration::ImportedModule %10 <extension=".hlt" path="" scope="-"> [canon-id: not set] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       | Foo -> declaration::Module %16 <id="Foo"> [canon-id: not set] [@d:XXX] ([@d:XXX])
@@ -88,20 +88,20 @@
 [debug/ast-scopes]         - ID <name="Bar::Bar1"> (foo.hlt:7:20) [@i:XXX]
 [debug/ast-scopes]       - node::None (foo.hlt:6:1) [@n:XXX]
 [debug/ast-scopes]     - declaration::Function %13 <linkage="private" parent_type="%???"> (foo.hlt:9:1) [canon-id: not set] [@d:XXX]
-[debug/ast-scopes]         | bar -> declaration::Parameter %15 <is_struct_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
-[debug/ast-scopes]         | foo -> declaration::Parameter %14 <is_struct_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | bar -> declaration::Parameter %15 <is_type_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | foo -> declaration::Parameter %14 <is_type_param="false" kind="in"> [canon-id: not set] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       - Function <cc="<standard>"> (foo.hlt:9:8) [@f:XXX]
 [debug/ast-scopes]         - ID <name="foo"> (foo.hlt:9:16) [@i:XXX]
 [debug/ast-scopes]         - type::Function <flavor="standard"> (foo.hlt:9:8) (const) (not resolved) [@t:XXX]
 [debug/ast-scopes]           - type::function::Result (foo.hlt:9:9) [@t:XXX]
 [debug/ast-scopes]             - type::String (foo.hlt:9:9) (const) (resolved) [@t:XXX]
 [debug/ast-scopes]           - node::None (foo.hlt:9:8) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %14 <is_struct_param="false" kind="in"> (foo.hlt:9:20) [canon-id: not set] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %14 <is_type_param="false" kind="in"> (foo.hlt:9:20) [canon-id: not set] [@d:XXX]
 [debug/ast-scopes]             - ID <name="foo"> (foo.hlt:9:25) [@i:XXX]
 [debug/ast-scopes]             - type::UnresolvedID (foo.hlt:9:20) (const) (not resolved) [@t:XXX]
 [debug/ast-scopes]               - ID <name="Foo1"> (foo.hlt:9:20) [@i:XXX]
 [debug/ast-scopes]             - node::None (foo.hlt:9:20) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %15 <is_struct_param="false" kind="in"> (foo.hlt:9:29) [canon-id: not set] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %15 <is_type_param="false" kind="in"> (foo.hlt:9:29) [canon-id: not set] [@d:XXX]
 [debug/ast-scopes]             - ID <name="bar"> (foo.hlt:9:40) [@i:XXX]
 [debug/ast-scopes]             - type::UnresolvedID (foo.hlt:9:29) (const) (not resolved) [@t:XXX]
 [debug/ast-scopes]               - ID <name="Bar::Bar1"> (foo.hlt:9:30) [@i:XXX]
@@ -130,7 +130,7 @@
 [debug/compiler]       resetting nodes for module Foo
 [debug/compiler]       building scopes for all modules
 [debug/compiler]       building scopes for all modules
-[debug/ast-scopes] # Bar: ASTs with scopes (round 2)
+[debug/ast-scopes] # [HILTI] Bar: ASTs with scopes (round 2)
 [debug/ast-scopes]   - Module %8 (bar.hlt:2:1-11:2) [@m:XXX]
 [debug/ast-scopes]       | Bar -> declaration::Module %18 <id="Bar"> [canon-id: not set] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       | Bar1 -> declaration::Type %3 <linkage="public"> [canon-id: Bar::Bar1] (resolved) [@d:XXX] ([@d:XXX])
@@ -155,25 +155,25 @@
 [debug/ast-scopes]       - type::Bool (alias) (foo.hlt:6:20) (const) (type-id: Foo::Foo1) (resolved) [@t:XXX]
 [debug/ast-scopes]       - node::None (foo.hlt:6:1) [@n:XXX]
 [debug/ast-scopes]     - declaration::Function %5 <linkage="private" parent_type="%???"> (bar.hlt:9:1) [canon-id: Bar::bar] [@d:XXX]
-[debug/ast-scopes]         | bar -> declaration::Parameter %6 <is_struct_param="false" kind="in"> [canon-id: Bar::bar::bar] [@d:XXX] ([@d:XXX])
-[debug/ast-scopes]         | foo -> declaration::Parameter %7 <is_struct_param="false" kind="in"> [canon-id: Bar::bar::foo] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | bar -> declaration::Parameter %6 <is_type_param="false" kind="in"> [canon-id: Bar::bar::bar] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | foo -> declaration::Parameter %7 <is_type_param="false" kind="in"> [canon-id: Bar::bar::foo] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       - Function <cc="<standard>"> (bar.hlt:9:8) [@f:XXX]
 [debug/ast-scopes]         - ID <name="bar"> (bar.hlt:9:16) [@i:XXX]
 [debug/ast-scopes]         - type::Function <flavor="standard"> (bar.hlt:9:8) (const) (resolved) [@t:XXX]
 [debug/ast-scopes]           - type::function::Result (bar.hlt:9:9) [@t:XXX]
 [debug/ast-scopes]             - type::String (bar.hlt:9:9) (const) (resolved) [@t:XXX]
 [debug/ast-scopes]           - node::None (foo.hlt:9:8) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %6 <is_struct_param="false" kind="in"> (bar.hlt:9:20) [canon-id: Bar::bar::bar] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %6 <is_type_param="false" kind="in"> (bar.hlt:9:20) [canon-id: Bar::bar::bar] [@d:XXX]
 [debug/ast-scopes]             - ID <name="bar"> (bar.hlt:9:25) [@i:XXX]
 [debug/ast-scopes]             - type::String (alias) (bar.hlt:6:20) (const) (type-id: Bar::Bar1) (resolved) [@t:XXX]
 [debug/ast-scopes]             - node::None (foo.hlt:9:20) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %7 <is_struct_param="false" kind="in"> (bar.hlt:9:29) [canon-id: Bar::bar::foo] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %7 <is_type_param="false" kind="in"> (bar.hlt:9:29) [canon-id: Bar::bar::foo] [@d:XXX]
 [debug/ast-scopes]             - ID <name="foo"> (bar.hlt:9:40) [@i:XXX]
 [debug/ast-scopes]             - type::Bool (alias) (foo.hlt:6:20) (const) (type-id: Foo::Foo1) (resolved) [@t:XXX]
 [debug/ast-scopes]             - node::None (foo.hlt:9:20) [@n:XXX]
 [debug/ast-scopes]         - node::None (foo.hlt:9:8) [@n:XXX]
 [debug/ast-scopes]         - node::None (foo.hlt:6:1) [@n:XXX]
-[debug/ast-scopes] # Foo: ASTs with scopes (round 2)
+[debug/ast-scopes] # [HILTI] Foo: ASTs with scopes (round 2)
 [debug/ast-scopes]   - Module %1 (foo.hlt:2:1-11:2) [@m:XXX]
 [debug/ast-scopes]       | Bar -> declaration::ImportedModule %19 <extension=".hlt" path="" scope="-"> [canon-id: Foo::Bar] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       | Foo -> declaration::Module %20 <id="Foo"> [canon-id: not set] [@d:XXX] ([@d:XXX])
@@ -198,19 +198,19 @@
 [debug/ast-scopes]       - type::String (alias) (bar.hlt:6:20) (const) (type-id: Bar::Bar1) (resolved) [@t:XXX]
 [debug/ast-scopes]       - node::None (foo.hlt:6:1) [@n:XXX]
 [debug/ast-scopes]     - declaration::Function %13 <linkage="private" parent_type="%???"> (foo.hlt:9:1) [canon-id: Foo::foo] [@d:XXX]
-[debug/ast-scopes]         | bar -> declaration::Parameter %15 <is_struct_param="false" kind="in"> [canon-id: Foo::foo::bar] [@d:XXX] ([@d:XXX])
-[debug/ast-scopes]         | foo -> declaration::Parameter %14 <is_struct_param="false" kind="in"> [canon-id: Foo::foo::foo] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | bar -> declaration::Parameter %15 <is_type_param="false" kind="in"> [canon-id: Foo::foo::bar] [@d:XXX] ([@d:XXX])
+[debug/ast-scopes]         | foo -> declaration::Parameter %14 <is_type_param="false" kind="in"> [canon-id: Foo::foo::foo] [@d:XXX] ([@d:XXX])
 [debug/ast-scopes]       - Function <cc="<standard>"> (foo.hlt:9:8) [@f:XXX]
 [debug/ast-scopes]         - ID <name="foo"> (foo.hlt:9:16) [@i:XXX]
 [debug/ast-scopes]         - type::Function <flavor="standard"> (foo.hlt:9:8) (const) (resolved) [@t:XXX]
 [debug/ast-scopes]           - type::function::Result (foo.hlt:9:9) [@t:XXX]
 [debug/ast-scopes]             - type::String (foo.hlt:9:9) (const) (resolved) [@t:XXX]
 [debug/ast-scopes]           - node::None (foo.hlt:9:8) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %14 <is_struct_param="false" kind="in"> (foo.hlt:9:20) [canon-id: Foo::foo::foo] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %14 <is_type_param="false" kind="in"> (foo.hlt:9:20) [canon-id: Foo::foo::foo] [@d:XXX]
 [debug/ast-scopes]             - ID <name="foo"> (foo.hlt:9:25) [@i:XXX]
 [debug/ast-scopes]             - type::Bool (alias) (foo.hlt:6:20) (const) (type-id: Foo::Foo1) (resolved) [@t:XXX]
 [debug/ast-scopes]             - node::None (foo.hlt:9:20) [@n:XXX]
-[debug/ast-scopes]           - declaration::Parameter %15 <is_struct_param="false" kind="in"> (foo.hlt:9:29) [canon-id: Foo::foo::bar] [@d:XXX]
+[debug/ast-scopes]           - declaration::Parameter %15 <is_type_param="false" kind="in"> (foo.hlt:9:29) [canon-id: Foo::foo::bar] [@d:XXX]
 [debug/ast-scopes]             - ID <name="bar"> (foo.hlt:9:40) [@i:XXX]
 [debug/ast-scopes]             - type::String (alias) (bar.hlt:6:20) (const) (type-id: Bar::Bar1) (resolved) [@t:XXX]
 [debug/ast-scopes]             - node::None (foo.hlt:9:20) [@n:XXX]
@@ -224,7 +224,7 @@
 [debug/compiler]       resolving nodes in module Foo
 [debug/compiler]     validating module Bar
 [debug/compiler]     validating module Foo
-[debug/ast-final] # Bar: Final AST
+[debug/ast-final] # [HILTI] Bar: Final AST
 [debug/ast-final]   - Module %8 (bar.hlt:2:1-11:2) [@m:XXX]
 [debug/ast-final]       | Bar -> declaration::Module %18 <id="Bar"> [canon-id: Bar] [@d:XXX] ([@d:XXX])
 [debug/ast-final]       | Bar1 -> declaration::Type %3 <linkage="public"> [canon-id: Bar::Bar1] (resolved) [@d:XXX] ([@d:XXX])
@@ -249,25 +249,25 @@
 [debug/ast-final]       - type::Bool (alias) (foo.hlt:6:20) (const) (type-id: Foo::Foo1) (resolved) [@t:XXX]
 [debug/ast-final]       - node::None (foo.hlt:6:1) [@n:XXX]
 [debug/ast-final]     - declaration::Function %5 <linkage="private" parent_type="%???"> (bar.hlt:9:1) [canon-id: Bar::bar] [@d:XXX]
-[debug/ast-final]         | bar -> declaration::Parameter %6 <is_struct_param="false" kind="in"> [canon-id: Bar::bar::bar] [@d:XXX] ([@d:XXX])
-[debug/ast-final]         | foo -> declaration::Parameter %7 <is_struct_param="false" kind="in"> [canon-id: Bar::bar::foo] [@d:XXX] ([@d:XXX])
+[debug/ast-final]         | bar -> declaration::Parameter %6 <is_type_param="false" kind="in"> [canon-id: Bar::bar::bar] [@d:XXX] ([@d:XXX])
+[debug/ast-final]         | foo -> declaration::Parameter %7 <is_type_param="false" kind="in"> [canon-id: Bar::bar::foo] [@d:XXX] ([@d:XXX])
 [debug/ast-final]       - Function <cc="<standard>"> (bar.hlt:9:8) [@f:XXX]
 [debug/ast-final]         - ID <name="bar"> (bar.hlt:9:16) [@i:XXX]
 [debug/ast-final]         - type::Function <flavor="standard"> (bar.hlt:9:8) (const) (resolved) [@t:XXX]
 [debug/ast-final]           - type::function::Result (bar.hlt:9:9) [@t:XXX]
 [debug/ast-final]             - type::String (bar.hlt:9:9) (const) (resolved) [@t:XXX]
 [debug/ast-final]           - node::None (foo.hlt:9:8) [@n:XXX]
-[debug/ast-final]           - declaration::Parameter %6 <is_struct_param="false" kind="in"> (bar.hlt:9:20) [canon-id: Bar::bar::bar] [@d:XXX]
+[debug/ast-final]           - declaration::Parameter %6 <is_type_param="false" kind="in"> (bar.hlt:9:20) [canon-id: Bar::bar::bar] [@d:XXX]
 [debug/ast-final]             - ID <name="bar"> (bar.hlt:9:25) [@i:XXX]
 [debug/ast-final]             - type::String (alias) (bar.hlt:6:20) (const) (type-id: Bar::Bar1) (resolved) [@t:XXX]
 [debug/ast-final]             - node::None (foo.hlt:9:20) [@n:XXX]
-[debug/ast-final]           - declaration::Parameter %7 <is_struct_param="false" kind="in"> (bar.hlt:9:29) [canon-id: Bar::bar::foo] [@d:XXX]
+[debug/ast-final]           - declaration::Parameter %7 <is_type_param="false" kind="in"> (bar.hlt:9:29) [canon-id: Bar::bar::foo] [@d:XXX]
 [debug/ast-final]             - ID <name="foo"> (bar.hlt:9:40) [@i:XXX]
 [debug/ast-final]             - type::Bool (alias) (foo.hlt:6:20) (const) (type-id: Foo::Foo1) (resolved) [@t:XXX]
 [debug/ast-final]             - node::None (foo.hlt:9:20) [@n:XXX]
 [debug/ast-final]         - node::None (foo.hlt:9:8) [@n:XXX]
 [debug/ast-final]         - node::None (foo.hlt:6:1) [@n:XXX]
-[debug/ast-final] # Foo: Final AST
+[debug/ast-final] # [HILTI] Foo: Final AST
 [debug/ast-final]   - Module %1 (foo.hlt:2:1-11:2) [@m:XXX]
 [debug/ast-final]       | Bar -> declaration::ImportedModule %19 <extension=".hlt" path="" scope="-"> [canon-id: Foo::Bar] [@d:XXX] ([@d:XXX])
 [debug/ast-final]       | Foo -> declaration::Module %20 <id="Foo"> [canon-id: Bar::Foo] [@d:XXX] ([@d:XXX])
@@ -292,19 +292,19 @@
 [debug/ast-final]       - type::String (alias) (bar.hlt:6:20) (const) (type-id: Bar::Bar1) (resolved) [@t:XXX]
 [debug/ast-final]       - node::None (foo.hlt:6:1) [@n:XXX]
 [debug/ast-final]     - declaration::Function %13 <linkage="private" parent_type="%???"> (foo.hlt:9:1) [canon-id: Foo::foo] [@d:XXX]
-[debug/ast-final]         | bar -> declaration::Parameter %15 <is_struct_param="false" kind="in"> [canon-id: Foo::foo::bar] [@d:XXX] ([@d:XXX])
-[debug/ast-final]         | foo -> declaration::Parameter %14 <is_struct_param="false" kind="in"> [canon-id: Foo::foo::foo] [@d:XXX] ([@d:XXX])
+[debug/ast-final]         | bar -> declaration::Parameter %15 <is_type_param="false" kind="in"> [canon-id: Foo::foo::bar] [@d:XXX] ([@d:XXX])
+[debug/ast-final]         | foo -> declaration::Parameter %14 <is_type_param="false" kind="in"> [canon-id: Foo::foo::foo] [@d:XXX] ([@d:XXX])
 [debug/ast-final]       - Function <cc="<standard>"> (foo.hlt:9:8) [@f:XXX]
 [debug/ast-final]         - ID <name="foo"> (foo.hlt:9:16) [@i:XXX]
 [debug/ast-final]         - type::Function <flavor="standard"> (foo.hlt:9:8) (const) (resolved) [@t:XXX]
 [debug/ast-final]           - type::function::Result (foo.hlt:9:9) [@t:XXX]
 [debug/ast-final]             - type::String (foo.hlt:9:9) (const) (resolved) [@t:XXX]
 [debug/ast-final]           - node::None (foo.hlt:9:8) [@n:XXX]
-[debug/ast-final]           - declaration::Parameter %14 <is_struct_param="false" kind="in"> (foo.hlt:9:20) [canon-id: Foo::foo::foo] [@d:XXX]
+[debug/ast-final]           - declaration::Parameter %14 <is_type_param="false" kind="in"> (foo.hlt:9:20) [canon-id: Foo::foo::foo] [@d:XXX]
 [debug/ast-final]             - ID <name="foo"> (foo.hlt:9:25) [@i:XXX]
 [debug/ast-final]             - type::Bool (alias) (foo.hlt:6:20) (const) (type-id: Foo::Foo1) (resolved) [@t:XXX]
 [debug/ast-final]             - node::None (foo.hlt:9:20) [@n:XXX]
-[debug/ast-final]           - declaration::Parameter %15 <is_struct_param="false" kind="in"> (foo.hlt:9:29) [canon-id: Foo::foo::bar] [@d:XXX]
+[debug/ast-final]           - declaration::Parameter %15 <is_type_param="false" kind="in"> (foo.hlt:9:29) [canon-id: Foo::foo::bar] [@d:XXX]
 [debug/ast-final]             - ID <name="bar"> (foo.hlt:9:40) [@i:XXX]
 [debug/ast-final]             - type::String (alias) (bar.hlt:6:20) (const) (type-id: Bar::Bar1) (resolved) [@t:XXX]
 [debug/ast-final]             - node::None (foo.hlt:9:20) [@n:XXX]

@@ -34,7 +34,9 @@ public:
 
     auto expressions() const { return childsOfType<Expression>(); }
     auto items() const { return childsOfType<type::unit::Item>(); }
-    auto itemNodes() { return nodesOfType<type::unit::Item>(); }
+
+    // TODO: Can we get rid of this?
+    auto itemNodes() const { return nodesOfType<type::unit::Item>(); }
 
     /** Returns true if this is the default case. */
     bool isDefault() const { return expressions().empty() && ! _look_ahead; }
@@ -44,9 +46,7 @@ public:
 
     auto properties() const { return node::Properties{{"default", isDefault()}, {"look-ahead", isLookAhead()}}; }
 
-    bool operator==(const Case& other) const {
-        return expressions() == other.expressions() && items() == other.items();
-    }
+    bool operator==(const Case& other) const;
 
 private:
     bool _look_ahead = false;
@@ -74,8 +74,10 @@ public:
     Engine engine() const { return _engine; }
     auto condition() const { return childs()[1].tryReferenceAs<Expression>(); }
     auto cases() const { return childs<switch_::Case>(_cases_start, _cases_end); }
-    auto casesNodes() { return nodesOfType<switch_::Case>(); }
     auto attributes() const { return childs()[2].tryReferenceAs<AttributeSet>(); }
+
+    // TODO: Can we get rid of this?
+    auto casesNodes() { return nodesOfType<switch_::Case>(); }
 
     auto hooks() const { return childs<Hook>(_hooks_start, _hooks_end); }
 
@@ -87,7 +89,7 @@ public:
      *
      * i: The field.
      */
-    std::optional<switch_::Case> case_(const type::unit::item::Field& x);
+    hilti::optional_ref<const switch_::Case> case_(const type::unit::item::Field& x);
 
     bool operator==(const Switch& other) const {
         return expression() == other.expression() && engine() == other.engine() && condition() == other.condition() &&
@@ -95,7 +97,7 @@ public:
     }
 
     // Unit item interface
-    Type itemType() const { return type::Void(); }
+    const Type& itemType() const { return type::void_; }
     auto isEqual(const Item& other) const { return node::isEqual(this, other); }
 
     // Node interface.

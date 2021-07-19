@@ -340,8 +340,8 @@ global_scope_decl
               | hook_decl                        { $$ = std::move($1); }
 
 type_decl     : opt_linkage TYPE scoped_id '=' type opt_attributes ';' {
-                                                   if ( auto x = $5.tryAs<type::Unit>(); x && $6 && *$6 )
-                                                       $5 = Type(type::Unit::addAttributes(*x, *$6));
+                                                   if ( auto x = $5.isA<type::Unit>(); x && $6 && *$6 )
+                                                       $5.as<type::Unit>().setAttributes(*$6);
 
                                                    $$ = hilti::declaration::Type(std::move($3), std::move($5), std::move($6), std::move($1), __loc__);
                                                  }
@@ -591,10 +591,10 @@ base_type_no_ref
               ;
 
 /* We split this out from "base_type" because it can lead to ambigitious in some contexts. */
-reference_type: type '&'                         { $$ = hilti::type::StrongReference(std::move($1), true, __loc__); }
+reference_type: type '&'                         { $$ = hilti::type::StrongReference(std::move($1), __loc__); }
 
 base_type     : base_type_no_ref
-                reference_type: type '&'         { $$ = hilti::type::StrongReference(std::move($1), true, __loc__); }
+                reference_type: type '&'         { $$ = hilti::type::StrongReference(std::move($1), __loc__); }
               ;
 
 type          : base_type                        { $$ = std::move($1); }
@@ -618,12 +618,12 @@ tuple_type_elems
               : tuple_type_elems ',' tuple_type_elem
                                                  { $$ = std::move($1); $$.push_back(std::move($3)); }
               | tuple_type_elems ','             { $$ = std::move($1); }
-              | tuple_type_elem                  { $$ = std::vector<std::pair<hilti::ID, hilti::Type>>{ std::move($1) }; }
+              | tuple_type_elem                  { $$ = std::vector<type::tuple::Element>{ std::move($1) }; }
               ;
 
 tuple_type_elem
-              : type                             { $$ = std::make_pair(hilti::ID(), std::move($1)); }
-              | local_id ':' type                { $$ = std::make_pair(std::move($1), std::move($3)); }
+              : type                             { $$ = type::tuple::Element(std::move($1)); }
+              | local_id ':' type                { $$ = type::tuple::Element(std::move($1), std::move($3)); }
               ;
 
 struct_type   : STRUCT '{' struct_fields '}'     { $$ = hilti::type::Struct(std::move($3), __loc__); }
@@ -1038,12 +1038,12 @@ re_pattern_constant
                                                  { $$ = std::move($3); }
 
 opt_map_elems : map_elems                        { $$ = std::move($1); }
-              | /* empty */                      { $$ = std::vector<hilti::ctor::Map::Element>(); }
+              | /* empty */                      { $$ = std::vector<hilti::ctor::map::Element>(); }
 
 map_elems     : map_elems ',' map_elem           { $$ = std::move($1); $$.push_back(std::move($3)); }
-              | map_elem                         { $$ = std::vector<hilti::ctor::Map::Element>(); $$.push_back(std::move($1)); }
+              | map_elem                         { $$ = std::vector<hilti::ctor::map::Element>(); $$.push_back(std::move($1)); }
 
-map_elem      : expr ':' expr                    { $$ = std::make_pair($1, $3); }
+map_elem      : expr ':' expr                    { $$ = hilti::ctor::map::Element($1, $3); }
 
 /* Attributes */
 

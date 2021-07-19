@@ -283,6 +283,14 @@ public:
 
     void push_back(const T& x) { _set.push_back(x); }
 
+    std::vector<T> copy() const {
+        std::vector<T> x;
+        for ( auto i = begin(); i != end(); i++ )
+            x.push_back(*i);
+
+        return x;
+    }
+
     const T& operator[](size_t i) const { return _set[i].get(); }
 
     bool operator==(const set& other) const {
@@ -330,8 +338,8 @@ std::vector<std::pair<std::reference_wrapper<A>, std::reference_wrapper<B>>> zip
 
 /** Filters a vector through a boolean predicate. */
 template<typename X, typename F>
-auto filter(const node::range<X>& x, F f) {
-    node::set<X> y;
+auto filter(const hilti::node::range<X>& x, F f) {
+    hilti::node::set<X> y;
     for ( const auto& i : x )
         if ( f(i) )
             y.push_back(i);
@@ -340,8 +348,8 @@ auto filter(const node::range<X>& x, F f) {
 
 /** Filters a vector through a boolean predicate. */
 template<typename X, typename F>
-auto filter(const node::set<X>& x, F f) {
-    node::set<X> y;
+auto filter(const hilti::node::set<X>& x, F f) {
+    hilti::node::set<X> y;
     for ( const auto& i : x )
         if ( f(i) )
             y.push_back(i);
@@ -663,7 +671,7 @@ public:
     template<typename T>
     auto childs(int begin, int end) const {
         auto end_ = (end < 0) ? _childs.end() : _childs.begin() + end;
-        return node::range<T>(_childs.begin() + begin, end_);
+        return hilti::node::range<T>(_childs.begin() + begin, end_);
     }
 
     auto childRefs(int begin, int end) {
@@ -684,7 +692,7 @@ public:
      */
     template<typename T>
     auto childsOfType() const {
-        typename node::set<T> n;
+        typename hilti::node::set<T> n;
         for ( auto c = _childs.begin(); c != _childs.end(); c = std::next(c) ) {
             if ( auto t = c->tryAs<T>() )
                 n.push_back(*t);
@@ -701,7 +709,7 @@ public:
      */
     template<typename T>
     auto nodesOfType() const {
-        typename node::set<Node> n;
+        typename hilti::node::set<Node> n;
         for ( auto c = _childs.begin(); c != _childs.end(); c = std::next(c) ) {
             if ( c->isA<T>() )
                 n.push_back(*c);
@@ -723,7 +731,7 @@ public:
 
     template<typename T>
     auto nodesOfType() {
-        typename node::set<Node> n;
+        typename hilti::node::set<Node> n;
         for ( auto c = _childs.begin(); c != _childs.end(); ++c ) {
             if ( c->isA<T>() )
                 n.push_back(*c);
@@ -791,6 +799,11 @@ inline Node makeAlias(const Node& n) {
     return x;
 }
 
+template<typename T>
+T clone(const T& n) {
+    return Node(n)._clone().as<T>();
+}
+
 /** Singleton. */
 static const Node none = None::create();
 
@@ -855,7 +868,7 @@ std::vector<Node> nodes(std::set<T> t) {
 }
 
 template<typename T>
-std::vector<Node> nodes(node::range<T> t) {
+std::vector<Node> nodes(hilti::node::range<T> t) {
     std::vector<Node> v;
     v.reserve(t.size());
     for ( const auto& i : t )
@@ -920,7 +933,7 @@ namespace node {
 namespace detail {
 // Backend to NodeBase::flattenedChilds.
 template<typename T>
-void flattenedChilds(const Node& n, std::vector<T>* dst) {
+void flattenedChilds(const Node& n, node::set<T>* dst) {
     for ( const auto& c : n.childs() ) {
         if ( auto t = c.tryAs<T>() )
             dst->push_back(*t);
@@ -936,8 +949,8 @@ void flattenedChilds(const Node& n, std::vector<T>* dst) {
  * to find instance anywhere below this node.
  */
 template<typename T>
-std::vector<T> flattenedChilds(const Node& n) {
-    std::vector<T> dst;
+node::set<T> flattenedChilds(const Node& n) {
+    node::set<T> dst;
     detail::flattenedChilds<T>(n, &dst);
     return dst;
 }

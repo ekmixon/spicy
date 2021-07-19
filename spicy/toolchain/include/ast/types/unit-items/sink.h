@@ -18,7 +18,7 @@ namespace spicy::type::unit::item {
 class Sink : public hilti::NodeBase, public spicy::trait::isUnitItem {
 public:
     Sink(ID id, std::optional<AttributeSet> attrs = {}, Meta m = Meta())
-        : NodeBase(nodes(std::move(id), std::move(attrs)), std::move(m)) {}
+        : NodeBase(nodes(std::move(id), std::move(attrs), type::Sink(m)), m) {}
 
     const auto& id() const { return child<ID>(0); }
     auto attributes() const { return childs()[1].tryReferenceAs<AttributeSet>(); }
@@ -26,7 +26,7 @@ public:
     bool operator==(const Sink& other) const { return id() == other.id() && attributes() == other.attributes(); }
 
     // Unit field interface
-    Type itemType() const { return type::Sink(meta()); }
+    const Type& itemType() const { return child<Type>(2); }
     auto isEqual(const Item& other) const { return node::isEqual(this, other); }
 
     // Node interface.

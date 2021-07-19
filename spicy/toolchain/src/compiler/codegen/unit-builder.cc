@@ -24,6 +24,16 @@ namespace builder = hilti::builder;
 
 namespace {
 
+template<typename X, typename F>
+auto _transform(const hilti::node::set<X>& x, F f) {
+    using Y = typename std::result_of<F(X&)>::type;
+    std::vector<Y> y;
+    y.reserve(x.size());
+    for ( const auto& i : x )
+        y.push_back(f(i));
+    return y;
+}
+
 struct FieldBuilder : public hilti::visitor::PreOrder<void, FieldBuilder> {
     FieldBuilder(CodeGen* cg, const spicy::type::Unit& unit) : cg(cg), unit(unit) {}
     CodeGen* cg;
@@ -62,8 +72,9 @@ struct FieldBuilder : public hilti::visitor::PreOrder<void, FieldBuilder> {
         };
 
         auto addHookImplementation = [&](auto& hook) {
-            if ( auto hook_impl = cg->compileHook(unit, ID(*unit.typeID(), f.id()), f, hook.isForEach(), hook.isDebug(),
-                                                  hook.type().parameters(), hook.body(), hook.priority(), hook.meta()) )
+            if ( auto hook_impl = cg->compileHook(unit, ID(*unit.id(), f.id()), f, hook.isForEach(), hook.isDebug(),
+                                                  hook.ftype().parameters().template copy<type::function::Parameter>(),
+                                                  hook.body(), hook.priority(), hook.meta()) )
                 cg->addDeclaration(*hook_impl);
         };
 
@@ -130,8 +141,9 @@ struct FieldBuilder : public hilti::visitor::PreOrder<void, FieldBuilder> {
 
     void operator()(const spicy::type::unit::item::UnitHook& h, const position_t /* p */) {
         auto hook = h.hook();
-        if ( auto hook_impl = cg->compileHook(unit, ID(*unit.typeID(), h.id()), {}, hook.isForEach(), hook.isDebug(),
-                                              hook.type().parameters(), hook.body(), hook.priority(), h.meta()) )
+        if ( auto hook_impl = cg->compileHook(unit, ID(*unit.id(), h.id()), {}, hook.isForEach(), hook.isDebug(),
+                                              hook.ftype().parameters().copy<type::function::Parameter>(), hook.body(),
+                                              hook.priority(), h.meta()) )
             cg->addDeclaration(*hook_impl);
     }
 };
@@ -227,11 +239,12 @@ Type CodeGen::compileUnit(const type::Unit& unit, bool declare_only) {
     v.addField(type::struct_::Field(type::struct_::Field("__parse_stage1", std::move(ft))));
 
     if ( auto convert = AttributeSet::find(unit.attributes(), "&convert") ) {
+        // TODO: Do we still need this? Was used to infer type of &convert expression.
         auto expression = *convert->valueAsExpression();
         auto result = type::Auto();
         auto params = std::vector<type::function::Parameter>();
-        auto ftype = type::Function(type::function::Result(std::move(result), expression.meta()), std::move(params),
-                                    hilti::type::function::Flavor::Method, expression.meta());
+        auto ftype = type::Function(type::function::Result(std::move(result), expression.get().meta()),
+                                    std::move(params), hilti::type::function::Flavor::Method, expression.get().meta());
 
         _pb.pushBuilder();
         _pb.builder()->addReturn(expression);
@@ -241,18 +254,16 @@ Type CodeGen::compileUnit(const type::Unit& unit, bool declare_only) {
         v.addField(std::move(convert_));
     }
 
-    assert(unit.typeID());
-    Type s = hilti::type::Struct(unit.parameters(), std::move(v.fields));
-    s = type::setTypeID(s, *unit.typeID());
+    assert(unit.id());
+    Type s = hilti::type::Struct(unit.parameters().copy(), std::move(v.fields));
+    s = type::setTypeID(s, *unit.id());
     s = _pb.addParserMethods(s.as<hilti::type::Struct>(), unit, declare_only);
 
     if ( unit.isPublic() || unit.isFilter() ) {
         auto builder = builder::Builder(context());
         auto description = unit.propertyItem("%description");
-        auto mime_types = hilti::util::transform(unit.propertyItems("%mime-type"), [](auto p) {
-            return builder::library_type_value(*p.expression(), "spicy_rt::MIMEType");
-        });
-        auto ports = hilti::util::transform(unit.propertyItems("%port"), [](auto p) {
+        auto mime_types = _transform(unit.propertyItems("%mime-type"), [](const auto& p) { return *p.expression(); });
+        auto ports = _transform(unit.propertyItems("%port"), [](auto p) {
             auto dir = builder::id("spicy_rt::Direction::Both");
 
             if ( const auto& attrs = p.attributes() ) {
@@ -266,7 +277,7 @@ Type CodeGen::compileUnit(const type::Unit& unit, bool declare_only) {
                     dir = builder::id("spicy_rt::Direction::Responder");
             }
 
-            return builder::library_type_value(builder::tuple({*p.expression(), dir}), "spicy_rt::ParserPort");
+            return builder::tuple({*p.expression(), dir});
         });
 
         Expression parse1 = builder::null();
@@ -283,7 +294,7 @@ Type CodeGen::compileUnit(const type::Unit& unit, bool declare_only) {
             context_new = _pb.contextNewFunction(unit);
 
         auto parser =
-            builder::struct_({{ID("name"), builder::string(*unit.typeID())},
+            builder::struct_({{ID("name"), builder::string(*unit.id())},
                               {ID("parse1"), parse1},
                               {ID("parse2"), _pb.parseMethodExternalOverload2(unit)},
                               {ID("parse3"), parse3},
@@ -296,16 +307,15 @@ Type CodeGen::compileUnit(const type::Unit& unit, bool declare_only) {
                                builder::vector(builder::typeByID("spicy_rt::ParserPort"), std::move(ports))}},
                              unit.meta());
 
-        builder.addAssign(builder::id(ID(*unit.typeID(), "__parser")), parser);
+        builder.addAssign(builder::id(ID(*unit.id(), "__parser")), parser);
 
         if ( unit.isPublic() )
-            builder.addExpression(
-                builder::call("spicy_rt::registerParser",
-                              {builder::id(ID(*unit.typeID(), "__parser")), builder::strong_reference(unit)}));
+            builder.addExpression(builder::call("spicy_rt::registerParser", {builder::id(ID(*unit.id(), "__parser")),
+                                                                             builder::strong_reference(unit)}));
 
         auto register_unit =
-            builder::function(ID(fmt("__register_%s", hilti::util::replace(*unit.typeID(), "::", "_"))), type::Void(),
-                              {}, builder.block(), type::function::Flavor::Standard, declaration::Linkage::Init);
+            builder::function(ID(fmt("__register_%s", hilti::util::replace(*unit.id(), "::", "_"))), type::Void(), {},
+                              builder.block(), type::function::Flavor::Standard, declaration::Linkage::Init);
         addDeclaration(std::move(register_unit));
     }
 

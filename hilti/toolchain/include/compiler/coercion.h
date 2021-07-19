@@ -242,7 +242,7 @@ CoercedExpression coerceExpression(const Expression& e, const Type& src_, const 
  * available (missing expressions for optional operands without defaults will
  * remain left out). If unsuccessful, an error.
  */
-Result<std::pair<bool, std::vector<Expression>>> coerceOperands(const node::range<Expression>& exprs,
+Result<std::pair<bool, std::vector<Expression>>> coerceOperands(const hilti::node::range<Expression>& exprs,
                                                                 const std::vector<operator_::Operand>& operands,
                                                                 bitmask<CoercionStyle> style);
 

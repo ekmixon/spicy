@@ -38,11 +38,11 @@ hilti::optional_ref<const declaration::Property> Module::moduleProperty(const ID
     return {};
 }
 
-node::set<declaration::Property> Module::moduleProperties(const ID& id) const {
+node::set<declaration::Property> Module::moduleProperties(const std::optional<ID>& id) const {
     node::set<declaration::Property> props;
 
     for ( const auto& d : declarations() ) {
-        if ( auto p = d.tryAs<declaration::Property>(); p && p->id() == id )
+        if ( auto p = d.tryAs<declaration::Property>(); p && (! id || p->id() == id) )
             props.push_back(*p);
     }
 

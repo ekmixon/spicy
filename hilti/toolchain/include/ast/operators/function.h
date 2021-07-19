@@ -33,7 +33,7 @@ public:
 
         static operator_::Kind kind() { return operator_::Kind::Call; }
         std::vector<operator_::Operand> operands() const { return _operands; }
-        Type result(const node::range<Expression>& /* ops */) const { return _result; }
+        Type result(const hilti::node::range<Expression>& /* ops */) const { return _result; }
         bool isLhs() const { return false; }
         void validate(const expression::ResolvedOperator& /* i */, operator_::position_t /* p */) const {}
         std::string doc() const { return "<dynamic - no doc>"; }

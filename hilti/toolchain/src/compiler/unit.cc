@@ -24,8 +24,8 @@ inline const DebugStream AstFinal("ast-final");
 inline const DebugStream AstOrig("ast-orig");
 inline const DebugStream AstResolved("ast-resolved");
 inline const DebugStream AstScopes("ast-scopes");
-inline const DebugStream AstPreTransformed("ast-pre-transformed");
 inline const DebugStream AstTransformed("ast-transformed");
+inline const DebugStream AstPrintTransformed("ast-print-transformed");
 inline const DebugStream AstDumpIterations("ast-dump-iterations");
 } // namespace hilti::logging::debug
 
@@ -127,7 +127,7 @@ Result<hilti::Module> Unit::parse(const std::shared_ptr<Context>& context, const
     auto plugin = plugin::registry().pluginForExtension(path.extension());
 
     if ( ! (plugin && plugin->parse) )
-        return result::Error(fmt("no plugin provides support for importing *%s files", path.extension()));
+        return result::Error(fmt("no plugin provides support for importing *%s files", path.extension().native()));
 
     auto dbg_message = fmt("parsing file %s", path);
 
@@ -144,17 +144,18 @@ Result<hilti::Module> Unit::parse(const std::shared_ptr<Context>& context, const
 }
 
 Result<Nothing> Unit::compile() {
-    std::set<ID> performed_imports;
-
+    // TODO: If we run a HILTI program through spicyc, the following will actually treat the code as Spicy ...
     for ( const auto& p : plugin::registry().plugins() ) {
         HILTI_DEBUG(logging::debug::Compiler, fmt("Plugin %s", p.component));
+
         logging::DebugPushIndent _(logging::debug::Compiler);
 
-        _dumpASTs(logging::debug::AstOrig, "Original AST");
+        _dumpASTs(p, logging::debug::AstOrig, "Original AST");
         _saveIterationASTs(p, "AST before first iteration");
 
         int round = 1;
         int extra_rounds = 0; // set to >0 for debugging
+        std::set<ID> performed_imports;
 
         while ( true ) {
             HILTI_DEBUG(logging::debug::Compiler, fmt("processing AST, round %d", round));
@@ -163,6 +164,7 @@ Result<Nothing> Unit::compile() {
             bool modified = false;
 
             while ( true ) {
+                // TODO: Can we avoid this copying?
                 auto orig_modules = _modules; // _modules may be modified by importer pass
 
                 for ( const auto& id : orig_modules ) {
@@ -204,7 +206,7 @@ Result<Nothing> Unit::compile() {
                     return result::Error("errors encountered during scope building");
             }
 
-            _dumpASTs(logging::debug::AstScopes, "ASTs with scopes", round);
+            _dumpASTs(p, logging::debug::AstScopes, "ASTs with scopes", round);
 
             for ( auto& [id, module] : modules ) {
                 if ( ! runModifyingHook(p, &modified, &Plugin::ast_normalize, fmt("normalizing nodes in module %s", id),
@@ -220,7 +222,7 @@ Result<Nothing> Unit::compile() {
                     return result::Error("errors encountered during resolving");
             }
 
-            _dumpASTs(logging::debug::AstResolved, "AST after resolving", round);
+            _dumpASTs(p, logging::debug::AstResolved, "AST after resolving", round);
             _saveIterationASTs(p, "Final AST", round);
 
             if ( ! modified && extra_rounds-- == 0 )
@@ -232,27 +234,32 @@ Result<Nothing> Unit::compile() {
 
         auto current = _currentModules();
 
-        /*
-         * if ( ! options().skip_validation && ! _collectErrors(current) ) {
-         *     _dumpASTs(logging::debug::AstFinal, "Final AST");
-         *     _saveIterationASTs(p, "Final AST", round);
-         *     return result::Error("errors encountered during processing");
-         * }
-         */
-
         if ( ! options().skip_validation ) {
             for ( auto& [id, module] : current ) {
-                bool modified = false;
-                runModifyingHook(p, &modified, &Plugin::ast_validate, fmt("validating module %s", id), context(),
-                                 &*module, this);
+                runHook(p, &Plugin::ast_validate, fmt("validating module %s", id), context(), &*module, this);
             }
         }
 
-        _dumpASTs(logging::debug::AstFinal, "Final AST");
+        _dumpASTs(p, logging::debug::AstFinal, "Final AST");
         _saveIterationASTs(p, "Final AST", round);
 
         if ( ! options().skip_validation && ! _collectErrors(current) )
             return result::Error("errors encountered during validation");
+
+        for ( auto& [id, module] : current ) {
+            if ( ! p.transform )
+                continue;
+
+            bool modified = false;
+            runModifyingHook(p, &modified, &Plugin::transform, fmt("transforming module %s", id), context(), &*module,
+                             this);
+
+            _dumpASTs(p, logging::debug::AstTransformed, "Transformed AST", round);
+            _saveIterationASTs(p, "Transformed AST", round);
+
+            if ( logger().isEnabled(logging::debug::AstPrintTransformed) )
+                hilti::print(std::cout, *module);
+        }
     }
 
     for ( auto& [id, module] : _currentModules() ) {
@@ -266,46 +273,6 @@ Result<Nothing> Unit::compile() {
 
     return Nothing();
 }
-
-#if 0
-if ( plugin::registry().hasHookFor(&Plugin::transform) ) {
-    _dumpASTs(logging::debug::AstPreTransformed, "Pre-transformed AST", round);
-
-    for ( auto& [id, module] : modules ) {
-        bool found_errors = false;
-
-        if ( ! runHooks(&Plugin::pre_validate, fmt("validating module %s (pre-transform)", id), context(), &*module,
-                        this, &found_errors) )
-            return result::Error("errors encountered during pre-transform validation");
-
-        if ( found_errors ) {
-            // We may have errors already set in the AST that we
-            // don't want to report, as normally they'd go away
-            // during further cycles. So we clear the AST and then
-            // run the hook again to get just the errors that it puts
-            // in place.
-            detail::clearErrors(&*module);
-            auto valid = _validateAST(id, NodeRef(module), [&](const ID& id, NodeRef& module) {
-                bool found_errors = false;
-                return runHooks(&Plugin::pre_validate, fmt("validating module %s (pre-transform, 2nd pass)", id),
-                                context(), &*module, this, &found_errors);
-            });
-
-            (void)valid;     // Fore use of `valid` since below `assert` might become a noop.
-            assert(! valid); // We already know it's failing.
-            _dumpAST(module, logging::debug::AstFinal, "Final AST");
-            _saveIterationASTs("Final AST", round);
-            return result::Error("errors encountered during pre-transform validation");
-        }
-
-        if ( ! runModifyingHooks(&modified, &Plugin::transform, fmt("transforming module %s", id), context(), &*module,
-                                 round == 1, this) )
-            return result::Error("errors encountered during source-to-source translation");
-    }
-
-    _dumpASTs(logging::debug::AstTransformed, "Transformed AST", round);
-}
-#endif
 
 Result<Nothing> Unit::codegen() {
     auto& module = imported(_id);
@@ -404,7 +371,7 @@ Result<ModuleIndex> Unit::import(const ID& id, const hilti::rt::filesystem::path
     auto plugin = plugin::registry().pluginForExtension(ext);
 
     if ( ! (plugin && plugin->parse) )
-        return result::Error(fmt("no plugin provides support for importing *%s files", ext));
+        return result::Error(fmt("no plugin provides support for importing *%s files", ext.native()));
 
     auto name = fmt("%s%s", util::tolower(id), ext.native());
 
@@ -550,21 +517,19 @@ static node::ErrorPriority _recursiveValidateAST(const Node& n, Location closest
         closest_location = n.location();
 
     if ( ! n.isAlias() && n.childs().size() ) {
+        auto oprio = prio;
         for ( const auto& c : n.childs() )
-            prio = _recursiveValidateAST(c, closest_location, node::ErrorPriority::NoError, level + 1, errors);
+            prio = std::max(prio, _recursiveValidateAST(c, closest_location, oprio, level + 1, errors));
     }
 
-    bool first = 0;
     auto errs = n.errors();
     for ( auto e = errs.rbegin(); e != errs.rend(); e++ ) {
         if ( ! e->location && closest_location )
             e->location = closest_location;
 
-        if ( e->priority > prio || first ) {
+        if ( e->priority > prio ) {
             errors->push_back(*e);
             prio = e->priority;
-
-            first = false;
         }
     }
 
@@ -607,7 +572,8 @@ bool Unit::_collectErrors(std::vector<std::pair<ID, Node*>>& modules) {
     return true;
 }
 
-void Unit::_dumpAST(const Node& module, const logging::DebugStream& stream, const std::string& prefix, int round) {
+void Unit::_dumpAST(const Plugin& p, const Node& module, const logging::DebugStream& stream, const std::string& prefix,
+                    int round) {
     if ( ! logger().isEnabled(stream) )
         return;
 
@@ -618,25 +584,27 @@ void Unit::_dumpAST(const Node& module, const logging::DebugStream& stream, cons
     if ( round > 0 )
         r = fmt(" (round %d)", round);
 
-    HILTI_DEBUG(stream, fmt("# %s: %s%s", m.id(), prefix, r));
+    HILTI_DEBUG(stream, fmt("# [%s] %s: %s%s", p.component, m.id(), prefix, r));
     detail::renderNode(module, stream, true);
 
-    if ( m.preserved().size() ) {
-        HILTI_DEBUG(stream, fmt("# %s: Preserved nodes%s", m.id(), r));
-        for ( const auto& i : m.preserved() )
-            detail::renderNode(i, stream, true);
-    }
+    /*
+     * if ( m.preserved().size() ) {
+     *     HILTI_DEBUG(stream, fmt("# %s: Preserved nodes%s", m.id(), r));
+     *     for ( const auto& i : m.preserved() )
+     *         detail::renderNode(i, stream, true);
+     * }
+     */
 }
 
-void Unit::_dumpASTs(const logging::DebugStream& stream, const std::string& prefix, int round) {
+void Unit::_dumpASTs(const Plugin& p, const logging::DebugStream& stream, const std::string& prefix, int round) {
     if ( ! logger().isEnabled(stream) )
         return;
 
     for ( auto& [id, module] : _currentModules() )
-        _dumpAST(*module, stream, prefix, round);
+        _dumpAST(p, *module, stream, prefix, round);
 }
 
-void Unit::_dumpAST(const Node& module, std::ostream& stream, const std::string& prefix, int round) {
+void Unit::_dumpAST(const Plugin& p, const Node& module, std::ostream& stream, const std::string& prefix, int round) {
     const auto& m = module.as<Module>();
 
     std::string r;
@@ -644,19 +612,21 @@ void Unit::_dumpAST(const Node& module, std::ostream& stream, const std::string&
     if ( round > 0 )
         r = fmt(" (round %d)", round);
 
-    stream << fmt("# %s: %s%s\n", m.id(), prefix, r);
+    stream << fmt("# [%s] %s: %s%s\n", p.component, m.id(), prefix, r);
     detail::renderNode(module, stream, true);
 
-    if ( m.preserved().size() ) {
-        stream << fmt("# %s: Preserved nodes%s\n", m.id(), r);
-        for ( const auto& i : m.preserved() )
-            detail::renderNode(i, stream, true);
-    }
+    /*
+     * if ( m.preserved().size() ) {
+     *     stream << fmt("# %s: Preserved nodes%s\n", m.id(), r);
+     *     for ( const auto& i : m.preserved() )
+     *         detail::renderNode(i, stream, true);
+     * }
+     */
 }
 
-void Unit::_dumpASTs(std::ostream& stream, const std::string& prefix, int round) {
+void Unit::_dumpASTs(const Plugin& p, std::ostream& stream, const std::string& prefix, int round) {
     for ( auto& [id, module] : _currentModules() )
-        _dumpAST(*module, stream, prefix, round);
+        _dumpAST(p, *module, stream, prefix, round);
 }
 
 void Unit::_saveIterationASTs(const Plugin& p, const std::string& prefix, int round) {
@@ -664,7 +634,7 @@ void Unit::_saveIterationASTs(const Plugin& p, const std::string& prefix, int ro
         return;
 
     std::ofstream out(fmt("ast-%s-%d.tmp", p.component, round));
-    _dumpASTs(out, prefix, round);
+    _dumpASTs(p, out, prefix, round);
 }
 
 Result<Unit> Unit::link(const std::shared_ptr<Context>& context, const std::vector<linker::MetaData>& mds) {

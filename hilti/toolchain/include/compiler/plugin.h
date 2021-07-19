@@ -129,7 +129,6 @@ struct Plugin {
      * @param arg3 current unit being compiled
      * @return true if the hook modified the AST in a substantial way
      */
-
     Hook<void, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_build_scopes;
     Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_normalize;
     Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_coerce;
@@ -143,19 +142,7 @@ struct Plugin {
      * @param arg2 root node of AST; the hook may not modify the AST
      * @param arg3 current unit being compiled
      */
-    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_validate;
-
-    /**
-     * Hook called to replace any custom AST nodes with standard HILTI
-     * nodes. Note that this may be called multiple times while ASTs are built.
-     *
-     * @param arg1 compiler context that's in use
-     * @param arg2 root node of AST; the hook may modify the AST
-     * @param arg3 boolean that's true if this hook runs for the first time on this AST.
-     * @param arg4 current unit being compiled
-     * @return true if the hook modified the AST in a substantial way
-     */
-    Hook<bool, std::shared_ptr<hilti::Context>, Node*, bool, Unit*> transform;
+    Hook<void, std::shared_ptr<hilti::Context>, Node*, Unit*> ast_validate;
 
     /**
      * Hook called to print an AST back as source code. The hook gets to
@@ -165,7 +152,18 @@ struct Plugin {
      * @param arg2 stream to print to
      * @return true if the hook printed the AST, false to fall back to default
      */
-    Hook<bool, const Node&, hilti::printer::Stream&> print_ast;
+    Hook<bool, const Node&, hilti::printer::Stream&> ast_print;
+
+    /**
+     * Hook called to replace any custom AST nodes with standard HILTI
+     * nodes. Note that this may be called multiple times while ASTs are built.
+     *
+     * @param arg1 compiler context that's in use
+     * @param arg2 root node of AST; the hook may modify the AST
+     * @param arg3 current unit being compiled
+     * @return true if the hook modified the AST in a substantial way
+     */
+    Hook<bool, std::shared_ptr<hilti::Context>, Node*, Unit*> transform;
 };
 
 class PluginRegistry;
@@ -197,6 +195,12 @@ public:
      * @return plugin if any has been register for the extension
      */
     Result<Plugin> pluginForExtension(hilti::rt::filesystem::path ext) const;
+
+    /**
+     * Shortcut to return the HILTI plugin. This must have been registered
+     * already when called.
+     */
+    const Plugin& hiltiPlugin() const;
 
     /**
      * Checks if at least one plugin implements a given hook.
