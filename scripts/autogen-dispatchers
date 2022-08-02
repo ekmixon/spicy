@@ -7,7 +7,7 @@ import sys
 
 
 def error(msg):
-    print("error: {}".format(msg), file=sys.stderr)
+    print(f"error: {msg}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -25,7 +25,7 @@ out = open(args.output, "w")
 print('#pragma once\n', file=out)
 
 for header in args.headers:
-    print("#include <{}>\n".format(header), file=out)
+    print(f"#include <{header}>\n", file=out)
 
 print("#define VISITOR_DISPATCHERS \\", file=out)
 
@@ -51,7 +51,7 @@ for f in args.nodes:
 
 for (cls, trait) in nodes:
     if trait not in traits:
-        print("No 'trait' definition for {}".format(trait), file=sys.stderr)
+        print(f"No 'trait' definition for {trait}", file=sys.stderr)
         sys.exit(1)
 
 for (btrait, bcls) in traits.items():

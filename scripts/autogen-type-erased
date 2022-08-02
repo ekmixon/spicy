@@ -116,27 +116,23 @@ def parseVariable(s):
 
 
 def varsToString(vars):
-    return ", ".join("{} {}".format(v.type, v.name) for v in vars)
+    return ", ".join(f"{v.type} {v.name}" for v in vars)
 
 
 def forwardParam(p):
-    if p.type.endswith("&"):
-        return p.name
-    else:
-        return "std::move({})".format(p.name)
+    return p.name if p.type.endswith("&") else f"std::move({p.name})"
 
 
 def parseMethod(s):
+
     class Method:
         pass
 
     m = Method()
 
-    i = re.search("(.*) *with *default *(\{.*)$", s)
-
-    if i:
-        s = i.group(1)
-        m.default = i.group(2)
+    if i := re.search("(.*) *with *default *(\{.*)$", s):
+        s = i[1]
+        m.default = i[2]
     else:
         m.default = None
 
@@ -198,7 +194,7 @@ def parseMember(s):
 
 
 def error(msg):
-    print("error: {}".format(msg), file=sys.stderr)
+    print(f"error: {msg}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -290,46 +286,53 @@ for line in open(args.api):
     error("parse error")
     sys.exit(1)
 
-concept_methods = ["{}virtual {} {}({}) {} = 0;".format(
-    m.comment, m.result, m.name, varsToString(m.params), m.attrs) for m in methods]
-concept_methods += ["virtual bool {}() const = 0;".format(t.method)
-                    for t in trait_methods]
+concept_methods = [
+    f"{m.comment}virtual {m.result} {m.name}({varsToString(m.params)}) {m.attrs} = 0;"
+    for m in methods
+]
 
-class_methods = ["{} {}({}) {};" .format(
-    m.result, m.name, varsToString(m.params), m.attrs) for m in methods]
-class_methods += ["bool {}() const;" .format(t.method) for t in trait_methods]
+concept_methods += [
+    f"virtual bool {t.method}() const = 0;" for t in trait_methods
+]
+
+
+class_methods = [
+    f"{m.result} {m.name}({varsToString(m.params)}) {m.attrs};"
+    for m in methods
+]
+
+class_methods += [f"bool {t.method}() const;" for t in trait_methods]
 
 class_methods_impl = ["inline {} {}::{}({}) {} {{ return data()->{}({}); }}\n".format(m.result, class_, m.name, varsToString(
     m.params), m.attrs, m.name, ", ".join([forwardParam(p) for p in m.params])) for m in methods]
 class_methods_impl += ["inline bool {}::{}() const {{ return data()->{}(); }}\n" .format(
     class_, t.method, t.method) for t in trait_methods]
-class_members = ["{};\n".format(m.declaration) for m in class_members]
+class_members = [f"{m.declaration};\n" for m in class_members]
 
-model_methods = ["{} {}({}) {} final;" .format(
-    m.result, m.name, varsToString(m.params), m.attrs) for m in methods]
-model_methods += ["bool {}() const final;".format(t.method)
-                  for t in trait_methods]
+model_methods = [
+    f"{m.result} {m.name}({varsToString(m.params)}) {m.attrs} final;"
+    for m in methods
+]
+
+model_methods += [f"bool {t.method}() const final;" for t in trait_methods]
 
 def mmi(m):
-    result = "return data().{}({});".format(
-        m.name, ", ".join([a.name for a in m.params]))
-    default = "return {};".format(
-        m.default) if m.default else "throw std::bad_cast();"
-    if m.traits:
-        cexps = ["""constexpr ( std::is_base_of<{}, T>::value )
+    result = f'return data().{m.name}({", ".join([a.name for a in m.params])});'
+    default = f"return {m.default};" if m.default else "throw std::bad_cast();"
+    if not m.traits:
+        return result
+    cexps = ["""constexpr ( std::is_base_of<{}, T>::value )
         {}
 """.format(t, result) for t in m.traits]
-        cexps = "    else if ".join(cexps)
-        return """
+    cexps = "    else if ".join(cexps)
+    return """
     if {}    else
         {}
 """.format(cexps, default)
-    else:
-        return result
 
 
 def tmi(t):
-    return "return std::is_base_of<{}, T>::value;".format(t.trait)
+    return f"return std::is_base_of<{t.trait}, T>::value;"
 
 
 model_methods_impl = ["template<typename T>\n{} Model<T>::{}({}) {} {{ {} }}\n" .format(
@@ -337,8 +340,8 @@ model_methods_impl = ["template<typename T>\n{} Model<T>::{}({}) {} {{ {} }}\n" 
 model_methods_impl += ["template<typename T>\nbool Model<T>::{}() const {{ {} }}\n" .format(t.method, tmi(t))
                        for t in trait_methods]
 
-ctor_attrs = ["_{}(std::move({}))".format(v.name, v.name) for v in attrs]
-concept_private_attrs = ["{} _{};".format(v.type, v.name) for v in attrs]
+ctor_attrs = [f"_{v.name}(std::move({v.name}))" for v in attrs]
+concept_private_attrs = [f"{v.type} _{v.name};" for v in attrs]
 
 if attrs:
     concept_ctors = ["Concept({}){} {{}}".format(
@@ -354,9 +357,9 @@ concept_methods += ["const {}& {}() {{ return _{}; }}".format(v.type,
                                                               v.name, v.name) for v in attrs]
 class_methods += ["const {}& {}() {{ return data()->{}(); }}".format(v.type,
                                                                      v.name, v.name) for v in attrs]
-class_traits = [", public {}".format(t) for t in traits]
+class_traits = [f", public {t}" for t in traits]
 class_requires = requires
-attrs_types = "".join([(", " + v.type) for v in attrs])
+attrs_types = "".join([f", {v.type}" for v in attrs])
 
 vals = {
     "class": class_,

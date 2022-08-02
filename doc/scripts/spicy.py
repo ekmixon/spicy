@@ -38,7 +38,7 @@ def make_index_tuple(indextype, indexentry, targetname, targetname2):
 
 class SpicyGeneric(ObjectDescription):
     def add_target_and_index(self, name, sig, signode):
-        targetname = self.objtype + '-' + name
+        targetname = f'{self.objtype}-{name}'
         if targetname not in self.state.document.ids:
             signode['names'].append(targetname)
             signode['ids'].append(targetname)
@@ -48,15 +48,18 @@ class SpicyGeneric(ObjectDescription):
             objects = self.env.domaindata['spicy']['objects']
             key = (self.objtype, name)
             if key in objects:
-                self.env.warn(self.env.docname,
-                              'duplicate description of %s %s, ' %
-                              (self.objtype, name) +
-                              'other instance in ' +
-                              self.env.doc2path(objects[key]),
-                              self.lineno)
+                self.env.warn(
+                    self.env.docname,
+                    (
+                        f'duplicate description of {self.objtype} {name}, '
+                        + 'other instance in '
+                    )
+                    + self.env.doc2path(objects[key]),
+                    self.lineno,
+                )
+
             objects[key] = self.env.docname
-        indextext = self.get_index_text(self.objtype, name)
-        if indextext:
+        if indextext := self.get_index_text(self.objtype, name):
             self.indexnode['entries'].append(make_index_tuple('single', indextext,
                                                               targetname, targetname))
 
@@ -124,7 +127,6 @@ class SpicyMethod(SpicyGeneric):
         const = m[3]
         result = m[4].replace("~", " ")
         args = sig[sig.find("(") + 1:-1].replace("~", " ")
-
 #        try:
 #            (ns, id) = result.split("::")
 #            rnode = addnodes.pending_xref("", refdomain='spicy', reftype='type', reftarget=result)
@@ -133,7 +135,7 @@ class SpicyMethod(SpicyGeneric):
 #        except ValueError:
 #            rnode = nodes.inline("", result)
 
-        signode += nodes.literal("", "%s(%s)" % (method, args))
+        signode += nodes.literal("", f"{method}({args})")
 
         if result != "-":
             signode += nodes.inline("", " → ")
@@ -150,7 +152,7 @@ class SpicyType(SpicyGeneric):
     def handle_signature(self, sig, signode):
         name = sig
 
-        if sig.find("::") > 0:
+        if name.find("::") > 0:
             signode += nodes.literal("", name)
 
         return name
@@ -160,7 +162,7 @@ class SpicyFunction(SpicyGeneric):
     def handle_signature(self, sig, signode):
         name = sig
 
-        if sig.find("::") > 0:
+        if name.find("::") > 0:
             signode += nodes.strong("", name)
 
         return name
@@ -171,7 +173,7 @@ class SpicyMethodXRefRole(XRefRole):
         i = title.find("::")
 
         if i > 0:
-            title = title[i+2:] + "()"
+            title = f"{title[i+2:]}()"
 
         return title, target
 
@@ -217,14 +219,18 @@ class SpicyDomain(Domain):
         objtypes = self.objtypes_for_role(typ)
         for objtype in objtypes:
             if (objtype, target) in objects:
-                return make_refnode(builder, fromdocname,
-                                    objects[objtype, target],
-                                    objtype + '-' + target,
-                                    contnode, target + ' ' + objtype)
+                return make_refnode(
+                    builder,
+                    fromdocname,
+                    objects[objtype, target],
+                    f'{objtype}-{target}',
+                    contnode,
+                    f'{target} {objtype}',
+                )
 
     def get_objects(self):
         for (typ, name), docname in self.data['objects'].items():
-            yield name, name, typ, docname, typ + '-' + name, 1
+            yield (name, name, typ, docname, f'{typ}-{name}', 1)
 
 
 class SpicyCode(CodeBlock):
@@ -236,11 +242,7 @@ class SpicyCode(CodeBlock):
     }
 
     def __init__(self, *args, **kwargs):
-        if len(args[1]) > 0:
-            file = "_" + args[1][0]
-        else:
-            file = None
-
+        file = f"_{args[1][0]}" if len(args[1]) > 0 else None
         args = list(args)
         args[1] = self.arguments = ['spicy']
         args[2]['lines'] = "2-"
@@ -280,13 +282,11 @@ class SpicyCode(CodeBlock):
             old = ""
 
         if text != old:
-            self.message("updating %s" % darkgreen(self.file[0]))
-            f = open(self.file[1], "w")
-            f.write(
-                "# Automatically generated; edit in Sphinx source code, not here.\n")
-            f.write(text)
-            f.close()
-
+            self.message(f"updating {darkgreen(self.file[0])}")
+            with open(self.file[1], "w") as f:
+                f.write(
+                    "# Automatically generated; edit in Sphinx source code, not here.\n")
+                f.write(text)
         ntext = ""
         include = 1
         for line in text.split("\n"):
@@ -335,15 +335,15 @@ class SpicyOutput(LiteralInclude):
 
         if "show-as" in options:
             self.show_as = options.get("show-as", None)
-            if not "prefix" in options:
+            if "prefix" not in options:
                 self.prefix = None
 
-        self.content_hash = ("# Automatically generated; do not edit. -- <HASH> %s/%s/%s" %
-                             (self.exec_,  self.show_as, self.expect_failure))
+        self.content_hash = f"# Automatically generated; do not edit. -- <HASH> {self.exec_}/{self.show_as}/{self.expect_failure}"
 
-        file = "_" + args[1][0]
-        index = ("_%s" % args[1][1] if len(args[1]) > 1 else "")
-        output = "examples/%s.output%s" % (file, index)
+
+        file = f"_{args[1][0]}"
+        index = f"_{args[1][1]}" if len(args[1]) > 1 else ""
+        output = f"examples/{file}.output{index}"
         args = list(args)
         args[1] = [output]
         args[2]['lines'] = "2-"
@@ -351,7 +351,7 @@ class SpicyOutput(LiteralInclude):
         super(LiteralInclude, self).__init__(*args, **kwargs)
 
         source = self.env.relfn2path(os.path.join("examples/", file))[0]
-        self.update(source, source + ".output%s" % index, self.exec_)
+        self.update(source, source + f".output{index}", self.exec_)
 
     def run(self):
         literal = LiteralInclude.run(self)
@@ -363,12 +363,12 @@ class SpicyOutput(LiteralInclude):
             return literal
 
     def update(self, source, destination, cmd):
-        if os.path.exists(destination) and not "UPDATE_SPICY_CODE" in os.environ:
+        if os.path.exists(destination) and "UPDATE_SPICY_CODE" not in os.environ:
             destination_time = os.path.getmtime(destination)
 
             if os.path.exists(source):
                 source_time = os.path.getmtime(source)
-            elif not "UPDATE_SPICY_CODE" in os.environ:
+            elif "UPDATE_SPICY_CODE" not in os.environ:
                 return
 
             if source_time <= destination_time:
@@ -379,22 +379,18 @@ class SpicyOutput(LiteralInclude):
         # When running from CI, all recorded output should be up to date.
         # Abort if that's not the case.
         if "CI" in os.environ:
-            self.error(
-                "error during CI: {} is not up to date in repository".format(destination))
+            self.error(f"error during CI: {destination} is not up to date in repository")
             return
 
         all_good = True
         first = True
 
-        show_as = []
-        if self.show_as:
-            show_as = self.show_as.split(";")
-
+        show_as = self.show_as.split(";") if self.show_as else []
         for one_cmd in cmd.split(";"):
             one_cmd = one_cmd.strip()
 
             one_cmd = one_cmd.replace("%INPUT", source)
-            self.message("executing %s" % darkgreen(one_cmd))
+            self.message(f"executing {darkgreen(one_cmd)}")
 
             try:
                 output = subprocess.check_output(
@@ -419,11 +415,9 @@ class SpicyOutput(LiteralInclude):
                 if first:
                     out = open(destination, "wb")
                     out.write(self.content_hash.encode())
-                    out.write(b"\n")
                 else:
                     out = open(destination, "ab")
-                    out.write(b"\n")
-
+                out.write(b"\n")
                 if show_as:
                     one_cmd = "# %s\n" % show_as[0].strip()
                     one_cmd = one_cmd.replace("%INPUT", self.show_with)

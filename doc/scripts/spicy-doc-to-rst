@@ -155,7 +155,7 @@ def namespace(ns):
 
 
 def rstHeading(title, level):
-    return "{}\n{}\n".format(title, "==-~"[level] * len(title))
+    return f'{title}\n{"==-~"[level] * len(title)}\n'
 
 
 def fmtDoc(doc):
@@ -163,8 +163,7 @@ def fmtDoc(doc):
     doc = doc.split("\n\n")
     for i in doc:
         x = textwrap.dedent(i).strip()
-        wrapped = textwrap.indent(textwrap.fill(x), prefix="    ")
-        if wrapped:
+        if wrapped := textwrap.indent(textwrap.fill(x), prefix="    "):
             n += [wrapped]
 
     return "\n\n".join(n)
@@ -198,23 +197,15 @@ class Operand:
         self.type = m.get("type")
 
     def rst(self, in_operator=False, prefix="", markup=True):
-        if self.doc:
-            type = fmtType(self.doc)
-        else:
-            type = fmtType(self.type)
-
+        type = fmtType(self.doc) if self.doc else fmtType(self.type)
         if not in_operator:
-            default = " = {}".format(self.default) if self.default else ""
+            default = f" = {self.default}" if self.default else ""
             x = "{id}: {type}{default}".format(
                 id=self.id, type=type, default=default).strip()
         else:
-            if markup:
-                x = "t:{type}".format(type=type)
-            else:
-                x = "{type}".format(type=type)
-
-        x = "{}{}".format(prefix, x)
-        return "[ {} ]".format(x) if self.optional else x
+            x = "t:{type}".format(type=type) if markup else "{type}".format(type=type)
+        x = f"{prefix}{x}"
+        return f"[ {x} ]" if self.optional else x
 
 
 class Operator:
@@ -232,14 +223,15 @@ class Operator:
             sig = Operators[self.kind](self)
         except KeyError:
             print(
-                "error: "
-                "operator {} not supported by spicy-doc-to-rst yet".format(
-                    self.kind), file=sys.stderr)
+                f"error: operator {self.kind} not supported by spicy-doc-to-rst yet",
+                file=sys.stderr,
+            )
+
             sys.exit(1)
 
         result = fmtType(self.rtype)
         return ".. spicy:operator:: "\
-            "{ns}::{kind} {result} {sig}\n\n{doc}".format(
+                "{ns}::{kind} {result} {sig}\n\n{doc}".format(
                 ns=self.namespace,
                 kind=self.kind,
                 result=result,
@@ -264,11 +256,7 @@ class Method:
 
     def rst(self):
         def arg(a):
-            if a.const or not a.mutable:
-                qual = ""
-            else:
-                qual = "inout "
-
+            qual = "" if a.const or not a.mutable else "inout "
             return a.rst(prefix=qual)
 
         args = ", ".join([arg(a) for a in self.args])
@@ -276,7 +264,7 @@ class Method:
         self_ = fmtType(self.self.type)
         result = fmtType(self.rtype)
         sig = ".. spicy:method:: "\
-            "{ns}::{id} {self} {id} {const} {result} ({args})\n\n{doc}".format(
+                "{ns}::{id} {self} {id} {const} {result} ({args})\n\n{doc}".format(
                 ns=self.namespace,
                 result=result,
                 self=self_,
@@ -310,7 +298,7 @@ if not args.dir and not args.types:
 try:
     meta = json.load(sys.stdin)
 except ValueError as e:
-    fatalError("cannot parse input: {}".format(e))
+    fatalError(f"cannot parse input: {e}")
 
 operators: Dict[str, List[Operator]] = {}
 methods: Dict[str, List[Method]] = {}
